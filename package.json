@@ -1,0 +1,22 @@
+{
+  "name": "helpservizi",
+  "version": "1.0.0",
+  "description": "1. Backend (API)\r    - From `backend/`:\r      - `npm install`\r      - `npx prisma migrate dev` (already run once)\r      - `npm run dev` to start http://localhost:4000",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev --workspace backend\" \"npm:dev --workspace frontend\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "private": "true",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

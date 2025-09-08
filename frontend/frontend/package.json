@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "framer-motion": "^12.23.12",
+    "frontend": "file:.."
+  }
+}
