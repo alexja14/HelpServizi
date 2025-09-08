@@ -37,19 +37,37 @@ export default function LandingPage() {
     const [cafFlag, setCafFlag] = useState(false)
     const [unemployed, setUnemployed] = useState(false)
     const [attempted, setAttempted] = useState(false)
-    function handleSubmit(e: React.FormEvent) {
+    const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [name, setName] = useState('')
+  const [lastName, setLastName] = useState('')
+    const [email, setEmail] = useState('')
+    const [phone, setPhone] = useState('')
+    async function handleSubmit(e: React.FormEvent) {
       e.preventDefault()
       setAttempted(true)
       if (!(consent && cafFlag && unemployed)) return
-      // Placeholder: send data (would integrate API call here)
-      console.log('submit', { cafFlag, consent, unemployed })
+      try {
+        setStatus('saving')
+        const res = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, lastName, email, phone, cafFlag, unemployed, consent })
+        })
+        if (!res.ok) throw new Error('fail')
+        setStatus('done')
+      } catch {
+        setStatus('error')
+      }
     }
     return (
-      <form onSubmit={handleSubmit} className="grid md:grid-cols-4 gap-4 text-sm" aria-label="Form di iscrizione iniziale">
-        <input className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="name" placeholder="Nome" aria-label="Nome" required />
-        <input className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
-        <input className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
-        <button disabled={!(consent && cafFlag && unemployed)} className="md:col-span-1 rounded bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 font-semibold hover:bg-brand-500 transition-colors" aria-label="Iscriviti gratis ora">Iscriviti gratis</button>
+      <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-4 text-sm" aria-label="Form di iscrizione iniziale">
+        <input value={name} onChange={e=>setName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="name" placeholder="Nome" aria-label="Nome" required />
+        <input value={lastName} onChange={e=>setLastName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="lastName" placeholder="Cognome" aria-label="Cognome" required />
+        <input value={email} onChange={e=>setEmail(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
+        <input value={phone} onChange={e=>setPhone(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
+        <button disabled={!(consent && cafFlag && unemployed) || status==='saving' || status==='done'} className="md:col-span-1 rounded bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 font-semibold hover:bg-brand-500 transition-colors" aria-label="Iscriviti gratis ora">
+          {status==='done' ? 'Registrato ✓' : status==='saving' ? 'Invio...' : 'Iscriviti gratis'}
+        </button>
         <div className="md:col-span-4 grid gap-2">
           <label className={`flex items-start gap-2 text-xs ${attempted && !cafFlag ? 'text-red-400' : 'text-gray-400'}`}>
             <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !cafFlag ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={cafFlag} onChange={e=>setCafFlag(e.target.checked)} aria-label="Flag CAF" />
@@ -63,7 +81,7 @@ export default function LandingPage() {
             <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !consent ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={consent} onChange={e=>setConsent(e.target.checked)} aria-label="Consenso trattamento dati" />
             <span>Acconsento al trattamento dei dati (email & telefono) <a href="#privacy" className="text-brand-300 hover:underline">Informativa</a> {attempted && !consent && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
           </label>
-          <p className="text-[10px] text-gray-500">Niente spam. Revoca in qualunque momento.</p>
+          <p className="text-[10px] text-gray-500">Niente spam. Revoca in qualunque momento. {status==='error' && <span className="text-red-400 ml-2">Errore, riprova.</span>}</p>
         </div>
       </form>
     )
@@ -83,6 +101,7 @@ export default function LandingPage() {
             <a href="#chi" className="hover:text-brand-600 transition-colors">ANT</a>
             <a href="#faq" className="hover:text-brand-600 transition-colors">FAQ</a>
             <a href="#iscriviti" className="hover:text-brand-600 transition-colors">Iscriviti</a>
+            <a href="#privacy" className="hover:text-brand-600 transition-colors">Privacy</a>
           </nav>
           <div className="flex items-center gap-2">
             <Button asChild size="sm" className="shadow-sm">
@@ -357,27 +376,6 @@ export default function LandingPage() {
         </div>
       </Section>
 
-      {/* Footer */}
-      <Section id="privacy" title="Informativa Privacy">
-        <div className="prose prose-invert max-w-none text-sm leading-relaxed">
-          <p><strong>Titolare del trattamento:</strong> [Nome azienda / Ente] ("Titolare"). Contatti: <a href="mailto:info@example.com" className="text-brand-300 underline">info@example.com</a>.</p>
-          <p><strong>Dati trattati:</strong> nome, email, telefono, conferma prima edizione CAF, dichiarazione stato occupazionale (disoccupato), preferenze e metadati tecnici (log accessi, timestamp iscrizione). Nessun dato particolare (art. 9 GDPR) è richiesto.</p>
-          <p><strong>Finalità e basi giuridiche:</strong></p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Gestione iscrizione al percorso e invio informazioni operative (base: art. 6(1)(b) GDPR – misure precontrattuali su richiesta dell’interessato).</li>
-            <li>Comunicazioni di follow‑up sul corso e materiali correlati (base: consenso art. 6(1)(a)).</li>
-            <li>Eventuale invio di contenuti formativi aggiuntivi / aggiornamenti (marketing leggero) solo se manterrai il consenso.</li>
-            <li>Statistiche interne e miglioramento servizio (interesse legittimo art. 6(1)(f) con minimizzazione e aggregazione).</li>
-          </ul>
-          <p><strong>Natura del conferimento:</strong> obbligatori: nome, email, consenso privacy. Facoltativi: telefono (ma necessario per contatti rapidi), flag prima edizione CAF (per fini statistici), dichiarazione disoccupazione (necessaria se previsto accesso a specifici benefici).</p>
-          <p><strong>Modalità:</strong> trattamento digitale su infrastrutture UE / o con fornitori conformi (sostituire con elenco effettivo se presente). Sicurezza: controlli di accesso, backup, minimizzazione.</p>
-          <p><strong>Conservazione:</strong> dati iscrizione per massimo 24 mesi dall’ultimo contatto utile o fino a revoca del consenso; log tecnici max 12 mesi; eventuali dati necessari ad obblighi legali secondo normative vigenti.</p>
-            <p><strong>Comunicazione / trasferimento:</strong> nessuna diffusione. Possibili responsabili esterni (es. piattaforma email, hosting) nominati ai sensi art. 28. Nessun trasferimento extra UE salvo adeguate garanzie (Clausole Standard / decisioni adeguatezza).</p>
-          <p><strong>Diritti:</strong> accesso, rettifica, cancellazione, limitazione, portabilità, opposizione, revoca consenso senza pregiudicare la liceità precedente. Reclamo al Garante Privacy (www.garanteprivacy.it).</p>
-          <p><strong>Revoca consenso:</strong> puoi revocare in qualunque momento scrivendo a <a href="mailto:info@example.com" className="text-brand-300 underline">info@example.com</a> o cliccando eventuale link unsubscribe nelle email.</p>
-          <p className="text-xs text-gray-500">Versione: v1 – aggiorna questo testo con dati reali (ragione sociale, P.IVA, indirizzo legale, fornitori effettivi) prima della pubblicazione.</p>
-        </div>
-      </Section>
 
       {/* Footer */}
   <footer className="border-t border-gray-800 py-10 text-sm bg-gray-950">

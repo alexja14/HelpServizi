@@ -18,3 +18,16 @@ model Task {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Lead collected from landing page signup
+model Lead {
+  id          Int      @id @default(autoincrement())
+  name        String
+  lastName    String   @default("")
+  email       String   @unique
+  phone       String?
+  cafFlag     Boolean
+  unemployed  Boolean
+  consent     Boolean
+  createdAt   DateTime @default(now())
+}

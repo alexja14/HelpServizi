@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import LandingPage from './LandingPage'
+import AdminPanel from './AdminPanel'
+import PrivacyPage from './PrivacyPage'
 
 function App() {
   useEffect(() => {
@@ -17,6 +19,9 @@ function App() {
     };
   }, []);
 
+  const hash = window.location.hash
+  if (hash === '#admin') return <AdminPanel />
+  if (hash === '#privacy') return <PrivacyPage />
   return <LandingPage />
 }
 
