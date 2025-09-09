@@ -2,7 +2,8 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
+import { PrivacyContent } from './components/PrivacyContent'
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
@@ -27,65 +28,93 @@ function Section({ id, title, children }: { id?: string; title: string; children
   )
 }
 
+// Reusable signup form component (used in section + modal)
+function SignupForm({ onSuccess, onOpenPrivacy }: { onSuccess?: () => void; onOpenPrivacy?: () => void }) {
+  const [consent, setConsent] = useState(false)
+  const [cafFlag, setCafFlag] = useState(false)
+  const [unemployed, setUnemployed] = useState(false)
+  const [attempted, setAttempted] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [name, setName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setAttempted(true)
+    // cafFlag non è più obbligatorio
+    if (!(consent && unemployed)) return
+    try {
+      setStatus('saving')
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, lastName, email, phone, cafFlag, unemployed, consent })
+      })
+      if (!res.ok) throw new Error('fail')
+      setStatus('done')
+      onSuccess?.()
+    } catch {
+      setStatus('error')
+    }
+  }
+  return (
+    <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-4 text-sm" aria-label="Form di iscrizione iniziale">
+      <input value={name} onChange={e => setName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="name" placeholder="Nome" aria-label="Nome" required />
+      <input value={lastName} onChange={e => setLastName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="lastName" placeholder="Cognome" aria-label="Cognome" required />
+      <input value={email} onChange={e => setEmail(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
+      <input value={phone} onChange={e => setPhone(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
+      <button disabled={!(consent && unemployed) || status === 'saving' || status === 'done'} className="md:col-span-1 rounded bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 font-semibold hover:bg-brand-500 transition-colors" aria-label="Iscriviti gratis ora">
+        {status === 'done' ? 'Registrato ✓' : status === 'saving' ? 'Invio...' : 'Iscriviti gratis'}
+      </button>
+      <div className="md:col-span-4 grid gap-2">
+        <label className="flex items-start gap-2 text-xs text-gray-400">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 rounded bg-gray-900 border-gray-700" checked={cafFlag} onChange={e => setCafFlag(e.target.checked)} aria-label="Flag CAF" />
+          <span>È il primo corso che seguo tramite il CAF (opzionale)</span>
+        </label>
+        <label className={`flex items-start gap-2 text-xs ${attempted && !unemployed ? 'text-red-400' : 'text-gray-400'}`}>
+          <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !unemployed ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={unemployed} onChange={e => setUnemployed(e.target.checked)} aria-label="Flag disoccupato" />
+          <span>Dichiaro di essere attualmente disoccupato {attempted && !unemployed && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
+        </label>
+        <label className={`flex items-start gap-2 text-xs ${attempted && !consent ? 'text-red-400' : 'text-gray-400'}`}>
+          <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !consent ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={consent} onChange={e => setConsent(e.target.checked)} aria-label="Consenso trattamento dati" />
+          <span>Acconsento al trattamento dei dati (email & telefono) <button type="button" onClick={() => onOpenPrivacy?.()} className="text-brand-300 hover:underline focus:outline-none">Informativa</button> {attempted && !consent && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
+        </label>
+        <p className="text-[10px] text-gray-500">Niente spam. Revoca in qualunque momento. {status === 'error' && <span className="text-red-400 ml-2">Errore, riprova.</span>}</p>
+      </div>
+    </form>
+  )
+}
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement | null>(null)
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
   const yCloud = useTransform(scrollYProgress, [0, 1], [0, 120])
-  // Local inline component for the signup form placed at top (moved from bottom)
-  function SignupForm() {
-    const [consent, setConsent] = useState(false)
-    const [cafFlag, setCafFlag] = useState(false)
-    const [unemployed, setUnemployed] = useState(false)
-    const [attempted, setAttempted] = useState(false)
-    const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
-    const [name, setName] = useState('')
-    const [lastName, setLastName] = useState('')
-    const [email, setEmail] = useState('')
-    const [phone, setPhone] = useState('')
-    async function handleSubmit(e: React.FormEvent) {
-      e.preventDefault()
-      setAttempted(true)
-      if (!(consent && cafFlag && unemployed)) return
-      try {
-        setStatus('saving')
-        const res = await fetch('/api/leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, lastName, email, phone, cafFlag, unemployed, consent })
-        })
-        if (!res.ok) throw new Error('fail')
-        setStatus('done')
-      } catch {
-        setStatus('error')
-      }
-    }
-    return (
-      <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-4 text-sm" aria-label="Form di iscrizione iniziale">
-        <input value={name} onChange={e => setName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="name" placeholder="Nome" aria-label="Nome" required />
-        <input value={lastName} onChange={e => setLastName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="lastName" placeholder="Cognome" aria-label="Cognome" required />
-        <input value={email} onChange={e => setEmail(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
-        <input value={phone} onChange={e => setPhone(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
-        <button disabled={!(consent && cafFlag && unemployed) || status === 'saving' || status === 'done'} className="md:col-span-1 rounded bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 font-semibold hover:bg-brand-500 transition-colors" aria-label="Iscriviti gratis ora">
-          {status === 'done' ? 'Registrato ✓' : status === 'saving' ? 'Invio...' : 'Iscriviti gratis'}
-        </button>
-        <div className="md:col-span-4 grid gap-2">
-          <label className={`flex items-start gap-2 text-xs ${attempted && !cafFlag ? 'text-red-400' : 'text-gray-400'}`}>
-            <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !cafFlag ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={cafFlag} onChange={e => setCafFlag(e.target.checked)} aria-label="Flag CAF" />
-            <span>È il primo corso che seguo tramite il CAF {attempted && !cafFlag && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
-          </label>
-          <label className={`flex items-start gap-2 text-xs ${attempted && !unemployed ? 'text-red-400' : 'text-gray-400'}`}>
-            <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !unemployed ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={unemployed} onChange={e => setUnemployed(e.target.checked)} aria-label="Flag disoccupato" />
-            <span>Dichiaro di essere attualmente disoccupato {attempted && !unemployed && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
-          </label>
-          <label className={`flex items-start gap-2 text-xs ${attempted && !consent ? 'text-red-400' : 'text-gray-400'}`}>
-            <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !consent ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={consent} onChange={e => setConsent(e.target.checked)} aria-label="Consenso trattamento dati" />
-            <span>Acconsento al trattamento dei dati (email & telefono) <a href="#privacy" className="text-brand-300 hover:underline">Informativa</a> {attempted && !consent && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
-          </label>
-          <p className="text-[10px] text-gray-500">Niente spam. Revoca in qualunque momento. {status === 'error' && <span className="text-red-400 ml-2">Errore, riprova.</span>}</p>
-        </div>
-      </form>
-    )
+  const [openSignup, setOpenSignup] = useState(false)
+  const [openPrivacy, setOpenPrivacy] = useState(false)
+
+  // Smooth scroll utility (accounts for sticky header height)
+  const smoothScrollTo = (selector: string) => {
+    const el = document.querySelector(selector) as HTMLElement | null
+    if (!el) return
+    const headerOffset = 64 // approx header height
+    const elementPosition = el.getBoundingClientRect().top + window.scrollY
+    const offsetPosition = elementPosition - headerOffset
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' })
   }
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, selector: string) => {
+    e.preventDefault()
+    smoothScrollTo(selector)
+  }
+
+  // Prevent body scroll when modal open
+  useEffect(() => {
+    if (openSignup || openPrivacy) {
+      const original = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = original }
+    }
+  }, [openSignup, openPrivacy])
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-brand-500/30">
       {/* Top bar */}
@@ -96,16 +125,16 @@ export default function LandingPage() {
             <span className="ml-1 font-semibold">AI Prestazioni Lavorative</span>
           </a>
           <nav className="hidden md:flex gap-6 text-sm font-medium">
-            <a href="#cosa" className="hover:text-brand-600 transition-colors">Competenze</a>
-            <a href="#come" className="hover:text-brand-600 transition-colors">Metodo</a>
-            <a href="#chi" className="hover:text-brand-600 transition-colors">ANT</a>
-            <a href="#faq" className="hover:text-brand-600 transition-colors">FAQ</a>
-            <a href="#iscriviti" className="hover:text-brand-600 transition-colors">Iscriviti</a>
+            <a href="#cosa" onClick={(e) => handleAnchorClick(e, '#cosa')} className="hover:text-brand-600 transition-colors">Competenze</a>
+            <a href="#come" onClick={(e) => handleAnchorClick(e, '#come')} className="hover:text-brand-600 transition-colors">Metodo</a>
+            <a href="#chi" onClick={(e) => handleAnchorClick(e, '#chi')} className="hover:text-brand-600 transition-colors">ANT</a>
+            <a href="#faq" onClick={(e) => handleAnchorClick(e, '#faq')} className="hover:text-brand-600 transition-colors">FAQ</a>
+            <a href="#iscriviti" onClick={(e) => { e.preventDefault(); setOpenSignup(true) }} className="hover:text-brand-600 transition-colors cursor-pointer">Iscriviti</a>
             <a href="#privacy" className="hover:text-brand-600 transition-colors">Privacy</a>
           </nav>
           <div className="flex items-center gap-2">
             <Button asChild size="sm" className="shadow-sm">
-              <a href="#iscriviti" aria-label="Iscriviti gratis ora">Iscriviti</a>
+              <a href="#iscriviti" onClick={(e) => { e.preventDefault(); setOpenSignup(true) }} aria-label="Iscriviti gratis ora">Iscriviti</a>
             </Button>
           </div>
         </div>
@@ -113,7 +142,7 @@ export default function LandingPage() {
 
       {/* Iscrizione (spostata in cima) */}
       <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
-        <SignupForm />
+        <SignupForm onOpenPrivacy={() => setOpenPrivacy(true)} />
       </Section>
 
       {/* Hero */}
@@ -152,16 +181,16 @@ export default function LandingPage() {
               {[0, 1, 2].map((i) => (
                 <motion.div key={i} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
                   {i === 0 && (
-                    <Button className="h-12 px-7 text-base bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-500/30" aria-label="Iscriviti gratis ora">Iscriviti gratis ora</Button>
+                    <Button onClick={() => setOpenSignup(true)} className="h-12 px-7 text-base bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-500/30" aria-label="Iscriviti gratis ora">Iscriviti gratis ora</Button>
                   )}
                   {i === 1 && (
                     <Button variant="outline" className="h-12 px-7 text-base border-gray-700 hover:bg-gray-800" asChild aria-label="Scarica il programma">
-                      <a href="#programma">Scarica il programma</a>
+                      <a href="#programma" onClick={(e) => handleAnchorClick(e, '#programma')}>Scarica il programma</a>
                     </Button>
                   )}
                   {i === 2 && (
                     <Button variant="ghost" className="h-12 px-4 text-base hover:bg-gray-800" asChild aria-label="Scorri per saperne di più">
-                      <a href="#cosa">Scopri di più ↓</a>
+                      <a href="#cosa" onClick={(e) => handleAnchorClick(e, '#cosa')}>Scopri di più ↓</a>
                     </Button>
                   )}
                 </motion.div>
@@ -392,6 +421,43 @@ export default function LandingPage() {
           </nav>
         </div>
       </footer>
+      {/* Modal Iscrizione */}
+      {openSignup && (
+        <div role="dialog" aria-modal="true" aria-labelledby="signup-modal-title" className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenSignup(false)} aria-hidden />
+          <motion.div initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20 }} className="relative w-full max-w-3xl mx-auto">
+            <Card className="p-6 md:p-8 bg-gray-950 border-gray-800 shadow-xl">
+              <div className="flex items-start justify-between mb-5">
+                <div>
+                  <h2 id="signup-modal-title" className="text-xl sm:text-2xl font-bold tracking-tight">Iscriviti ora</h2>
+                  <p className="text-xs text-gray-400 mt-1">Posti limitati per le prossime sessioni di Autunno</p>
+                </div>
+                <button onClick={() => setOpenSignup(false)} aria-label="Chiudi modale" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
+              </div>
+              <SignupForm onSuccess={() => setTimeout(() => setOpenSignup(false), 1400)} onOpenPrivacy={() => setOpenPrivacy(true)} />
+              <p className="mt-4 text-[11px] text-gray-500">Compilando registri il tuo interesse. Ti ricontattiamo con i prossimi slot.</p>
+            </Card>
+          </motion.div>
+        </div>
+      )}
+      {/* Modal Privacy */}
+      {openPrivacy && (
+        <div role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title" className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenPrivacy(false)} aria-hidden />
+          <motion.div initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="relative w-full max-w-4xl mx-auto">
+            <Card className="p-6 md:p-8 bg-gray-950 border-gray-800 shadow-xl max-h-[80vh] overflow-y-auto">
+              <div className="flex items-start justify-between mb-4">
+                <h2 id="privacy-modal-title" className="text-xl font-bold tracking-tight">Informativa Privacy</h2>
+                <div className="flex gap-2 items-center">
+                  <a href="#privacy" className="text-xs text-brand-300 hover:underline" onClick={() => setOpenPrivacy(false)}>Apri pagina completa →</a>
+                  <button onClick={() => setOpenPrivacy(false)} aria-label="Chiudi modale" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
+                </div>
+              </div>
+              <PrivacyContent />
+            </Card>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
