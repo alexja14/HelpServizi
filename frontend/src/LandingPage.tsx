@@ -2,7 +2,7 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { PrivacyContent } from './components/PrivacyContent'
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
@@ -64,8 +64,15 @@ function SignupForm({ onSuccess, onOpenPrivacy }: { onSuccess?: () => void; onOp
       <input value={lastName} onChange={e => setLastName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="lastName" placeholder="Cognome" aria-label="Cognome" required />
       <input value={email} onChange={e => setEmail(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
       <input value={phone} onChange={e => setPhone(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
-      <button disabled={!(consent && unemployed) || status === 'saving' || status === 'done'} className="md:col-span-1 rounded bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 font-semibold hover:bg-brand-500 transition-colors" aria-label="Iscriviti gratis ora">
-        {status === 'done' ? 'Registrato ✓' : status === 'saving' ? 'Invio...' : 'Iscriviti gratis'}
+      <button disabled={!(consent && unemployed) || status === 'saving' || status === 'done'} className="relative md:col-span-1 rounded font-semibold text-white px-5 py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cta-glow cta-animated overflow-hidden" aria-label="Iscriviti gratis ora">
+        <span className="relative z-10">
+          {status === 'done' ? 'Registrato ✓' : status === 'saving' ? 'Invio...' : 'Iscriviti gratis'}
+        </span>
+        <span aria-hidden className="cta-particles">
+          {Array.from({ length: 8 }).map((_, p) => (
+            <span key={p} style={{ ['--tx' as any]: `${(Math.random() * 90 - 45).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 40 - 20).toFixed(0)}px`, ['--dur' as any]: `${(4 + Math.random() * 3).toFixed(2)}s`, animationDelay: `${(Math.random() * 3).toFixed(2)}s` }} />
+          ))}
+        </span>
       </button>
       <div className="md:col-span-4 grid gap-2">
         <label className="flex items-start gap-2 text-xs text-gray-400">
@@ -85,6 +92,62 @@ function SignupForm({ onSuccess, onOpenPrivacy }: { onSuccess?: () => void; onOp
     </form>
   )
 }
+// Typing effect component (progressively reveals phrases)
+function TypingHeadline({ phrases, className }: { phrases: string[]; className?: string }) {
+  const [index, setIndex] = useState(0)
+  const [subIndex, setSubIndex] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const [blinkCaret, setBlinkCaret] = useState(true)
+  const longest = useMemo(() => phrases.reduce((a, b) => (b.length > a.length ? b : a), ''), [phrases])
+
+  useEffect(() => {
+    const current = phrases[index]
+    if (!deleting && subIndex === current.length) {
+      const pause = setTimeout(() => setDeleting(true), 1400)
+      return () => clearTimeout(pause)
+    }
+    if (deleting && subIndex === 0) {
+      setDeleting(false)
+      setIndex((i) => (i + 1) % phrases.length)
+      return
+    }
+    const timeout = setTimeout(() => {
+      setSubIndex((s) => s + (deleting ? -1 : 1))
+    }, deleting ? 30 : 55)
+    return () => clearTimeout(timeout)
+  }, [subIndex, deleting, index, phrases])
+
+  useEffect(() => {
+    const blink = setInterval(() => setBlinkCaret((b) => !b), 500)
+    return () => clearInterval(blink)
+  }, [])
+
+  const text = phrases[index].slice(0, subIndex)
+  return (
+    <span
+      className={(className || '') + ' typing-inline inline-grid relative'}
+      style={{ whiteSpace: 'nowrap' }}
+    >
+      {/* Invisible static placeholder locks width & height, preventing any layout shift */}
+      <span className="invisible col-start-1 row-start-1 pointer-events-none select-none">{longest}</span>
+      <span className="col-start-1 row-start-1">
+        {text}
+        <span
+          aria-hidden
+          className="inline-block align-middle ml-0.5"
+          style={{
+            width: '2px',
+            height: '1em',
+            background: 'currentColor',
+            opacity: blinkCaret ? 1 : 0,
+            transition: 'opacity 0.15s linear'
+          }}
+        />
+      </span>
+    </span>
+  )
+}
+
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement | null>(null)
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
@@ -140,11 +203,6 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Iscrizione (spostata in cima) */}
-      <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
-        <SignupForm onOpenPrivacy={() => setOpenPrivacy(true)} />
-      </Section>
-
       {/* Hero */}
       <section ref={heroRef} className="relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.25),transparent_60%)]" />
@@ -158,9 +216,32 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.05 }}
-              className="text-4xl sm:text-5xl font-extrabold leading-tight mb-5 tracking-tight text-gradient-brand"
+              className="text-4xl sm:text-5xl font-extrabold leading-tight mb-5 tracking-tight"
             >
-              Potenzia la tua carriera con l’AI pratica
+              <span className="block">
+                <span className="relative inline-block word-glow">
+                  <span className="word-text text-gradient-brand">Potenzia</span>
+                  <span aria-hidden className="word-particles">
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <span key={i} style={{ ['--tx' as any]: `${(Math.random() * 140 - 70).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 60 - 30).toFixed(0)}px`, ['--dur' as any]: `${(5 + Math.random() * 4).toFixed(2)}s`, animationDelay: `${(Math.random() * 4).toFixed(2)}s` }} />
+                    ))}
+                  </span>
+                </span>{' '}
+                <span className="text-gradient-brand">la tua carriera </span><span className="word-text text-gradient-brand">con</span> <span className="word-text text-gradient-brand">l’AI</span>
+
+                <span className="relative inline-block word-glow ml-1">
+
+                  <span aria-hidden className="word-particles">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <span key={i} style={{ ['--tx' as any]: `${(Math.random() * 100 - 50).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 40 - 20).toFixed(0)}px`, ['--dur' as any]: `${(4 + Math.random() * 3).toFixed(2)}s`, animationDelay: `${(Math.random() * 3).toFixed(2)}s` }} />
+                    ))}
+                  </span>
+                </span>
+              </span>
+              <span className="block mt-1 text-gray-300">
+
+                <TypingHeadline phrases={["strumenti intelligenti", "automazioni smart", "progetti reali"]} />
+              </span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 24 }}
@@ -181,7 +262,20 @@ export default function LandingPage() {
               {[0, 1, 2].map((i) => (
                 <motion.div key={i} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
                   {i === 0 && (
-                    <Button onClick={() => setOpenSignup(true)} className="h-12 px-7 text-base bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-500/30" aria-label="Iscriviti gratis ora">Iscriviti gratis ora</Button>
+                    <Button onClick={() => setOpenSignup(true)} className="relative h-12 px-8 text-base font-semibold bg-brand-600 hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 rounded-md transition-colors cta-glow overflow-hidden" aria-label="Iscriviti gratis ora">
+                      <span className="relative z-10">Iscriviti gratis ora</span>
+                      <span aria-hidden className="cta-particles">
+                        {Array.from({ length: 14 }).map((_, p) => (
+                          <span key={p} style={{
+                            // random-ish positions via inline CSS custom props
+                            ['--tx' as any]: `${(Math.random() * 120 - 60).toFixed(0)}px`,
+                            ['--ty' as any]: `${(Math.random() * 60 - 30).toFixed(0)}px`,
+                            ['--dur' as any]: `${(4 + Math.random() * 4).toFixed(2)}s`,
+                            animationDelay: `${(Math.random() * 4).toFixed(2)}s`
+                          }} />
+                        ))}
+                      </span>
+                    </Button>
                   )}
                   {i === 1 && (
                     <Button variant="outline" className="h-12 px-7 text-base border-gray-700 hover:bg-gray-800" asChild aria-label="Scarica il programma">
@@ -254,6 +348,11 @@ export default function LandingPage() {
         </div>
         <div aria-hidden className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-400/40 to-transparent" />
       </section>
+
+      {/* Sezione iscrizione spostata sotto la hero */}
+      <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
+        <SignupForm onOpenPrivacy={() => setOpenPrivacy(true)} />
+      </Section>
 
       {/* Prova sociale */}
       <Section title="Perché fidarti di noi">

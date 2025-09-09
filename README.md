@@ -38,7 +38,7 @@ curl -u admin:changeme http://localhost:4000/api/admin/leads
 Set credentials in `backend/.env`:
 ```
 ADMIN_USER=admin
-ADMIN_PASS=supersecret
+ADMIN_PASS=supersecret 
 ```
 
 After changing the Prisma schema run:
