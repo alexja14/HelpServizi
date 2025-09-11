@@ -36,3 +36,7 @@ Creazione musicale: Generazione di tracce musicali originali in vari generi per 
 Clonazione vocale: Creazione di una replica digitale della voce di una persona per usarla in applicazioni vocali, come annunci o assistenti personalizzati.
 
 Rimozione di rumori: Miglioramento della qualità dell'audio eliminando rumori di fondo indesiderati.
+
+
+
+

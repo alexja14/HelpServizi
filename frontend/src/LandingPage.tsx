@@ -1,258 +1,17 @@
 import { CheckCircleIcon, ShieldCheckIcon, AcademicCapIcon, HandThumbUpIcon, BriefcaseIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/solid'
-import { motion, useScroll, useTransform, useInView, useMotionValue, useAnimationFrame } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
-import { useRef, useState, useEffect, useMemo } from 'react'
-import type { ReactNode } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { PrivacyContent } from './components/PrivacyContent'
-import { FAQContent } from './components/FAQContent'
 import { ExpectedResults } from './components/ExpectedResults'
+import Section from './components/Section'
+import SignupForm from './components/SignupForm'
+import { FAQContent } from './components/FAQContent'
+import TypingHeadline from './components/landing/TypingHeadline'
+import Marquee from './components/landing/Marquee'
+import AnimatedStatCard, { type Stat } from './components/landing/AnimatedStatCard'
 
-function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
-  return (
-    <motion.section
-      id={id}
-      className="py-14 sm:py-16"
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.6, ease: 'easeOut' }}
-    >
-      <div className="container mx-auto max-w-6xl px-4">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="h-8 w-1 rounded bg-gradient-to-b from-brand-400 to-brand-600" aria-hidden="true" />
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {title}
-          </h2>
-        </div>
-        {children}
-      </div>
-    </motion.section>
-  )
-}
-
-// Reusable signup form component (used in section + modal)
-function SignupForm({ onSuccess, onOpenPrivacy }: { onSuccess?: () => void; onOpenPrivacy?: () => void }) {
-  const [consent, setConsent] = useState(false)
-  const [cafFlag, setCafFlag] = useState(false)
-  const [unemployed, setUnemployed] = useState(false)
-  const [attempted, setAttempted] = useState(false)
-  const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
-  const [name, setName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setAttempted(true)
-    // cafFlag non è più obbligatorio
-    if (!(consent && unemployed)) return
-    try {
-      setStatus('saving')
-      const res = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, lastName, email, phone, cafFlag, unemployed, consent })
-      })
-      if (!res.ok) throw new Error('fail')
-      setStatus('done')
-      onSuccess?.()
-    } catch {
-      setStatus('error')
-    }
-  }
-  return (
-    <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-4 text-sm" aria-label="Form di iscrizione iniziale">
-      <input value={name} onChange={e => setName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="name" placeholder="Nome" aria-label="Nome" required />
-      <input value={lastName} onChange={e => setLastName(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" name="lastName" placeholder="Cognome" aria-label="Cognome" required />
-      <input value={email} onChange={e => setEmail(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="email" name="email" placeholder="Email" aria-label="Email" required />
-      <input value={phone} onChange={e => setPhone(e.target.value)} className="md:col-span-1 border border-gray-800 bg-gray-900 rounded px-4 py-3 w-full placeholder:text-gray-500" type="tel" name="phone" placeholder="Telefono" aria-label="Telefono" pattern="[0-9 +()-]{6,}" />
-      <button disabled={!(consent && unemployed) || status === 'saving' || status === 'done'} className="relative md:col-span-1 rounded font-semibold text-white px-5 py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cta-glow cta-animated overflow-hidden" aria-label="Iscriviti gratis ora">
-        <span className="relative z-10">
-          {status === 'done' ? 'Registrato ✓' : status === 'saving' ? 'Invio...' : 'Iscriviti gratis'}
-        </span>
-        <span aria-hidden className="cta-particles">
-          {Array.from({ length: 8 }).map((_, p) => (
-            <span key={p} style={{ ['--tx' as any]: `${(Math.random() * 90 - 45).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 40 - 20).toFixed(0)}px`, ['--dur' as any]: `${(4 + Math.random() * 3).toFixed(2)}s`, animationDelay: `${(Math.random() * 3).toFixed(2)}s` }} />
-          ))}
-        </span>
-      </button>
-      <div className="md:col-span-4 grid gap-2">
-        <label className="flex items-start gap-2 text-xs text-gray-400">
-          <input type="checkbox" className="mt-0.5 h-4 w-4 rounded bg-gray-900 border-gray-700" checked={cafFlag} onChange={e => setCafFlag(e.target.checked)} aria-label="Flag CAF" />
-          <span>È il primo corso che seguo tramite il CAF (opzionale)</span>
-        </label>
-        <label className={`flex items-start gap-2 text-xs ${attempted && !unemployed ? 'text-red-400' : 'text-gray-400'}`}>
-          <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !unemployed ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={unemployed} onChange={e => setUnemployed(e.target.checked)} aria-label="Flag disoccupato" />
-          <span>Dichiaro di essere attualmente disoccupato {attempted && !unemployed && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
-        </label>
-        <label className={`flex items-start gap-2 text-xs ${attempted && !consent ? 'text-red-400' : 'text-gray-400'}`}>
-          <input type="checkbox" className={`mt-0.5 h-4 w-4 rounded bg-gray-900 ${attempted && !consent ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-700'}`} checked={consent} onChange={e => setConsent(e.target.checked)} aria-label="Consenso trattamento dati" />
-          <span>Acconsento al trattamento dei dati (email & telefono) <button type="button" onClick={() => onOpenPrivacy?.()} className="text-brand-300 hover:underline focus:outline-none">Informativa</button> {attempted && !consent && <em className="not-italic text-red-400">(obbligatorio)</em>}</span>
-        </label>
-        <p className="text-[10px] text-gray-500">Niente spam. Revoca in qualunque momento. {status === 'error' && <span className="text-red-400 ml-2">Errore, riprova.</span>}</p>
-      </div>
-    </form>
-  )
-}
-// Typing effect component (progressively reveals phrases)
-function TypingHeadline({ phrases, className }: { phrases: string[]; className?: string }) {
-  const [index, setIndex] = useState(0)
-  const [subIndex, setSubIndex] = useState(0)
-  const [deleting, setDeleting] = useState(false)
-  const [blinkCaret, setBlinkCaret] = useState(true)
-  const longest = useMemo(() => phrases.reduce((a, b) => (b.length > a.length ? b : a), ''), [phrases])
-
-  useEffect(() => {
-    const current = phrases[index]
-    if (!deleting && subIndex === current.length) {
-      const pause = setTimeout(() => setDeleting(true), 1400)
-      return () => clearTimeout(pause)
-    }
-    if (deleting && subIndex === 0) {
-      setDeleting(false)
-      setIndex((i) => (i + 1) % phrases.length)
-      return
-    }
-    const timeout = setTimeout(() => {
-      setSubIndex((s) => s + (deleting ? -1 : 1))
-    }, deleting ? 30 : 55)
-    return () => clearTimeout(timeout)
-  }, [subIndex, deleting, index, phrases])
-
-  useEffect(() => {
-    const blink = setInterval(() => setBlinkCaret((b) => !b), 500)
-    return () => clearInterval(blink)
-  }, [])
-
-  const text = phrases[index].slice(0, subIndex)
-  return (
-    <span
-      className={(className || '') + ' typing-inline inline-grid relative'}
-      style={{ whiteSpace: 'nowrap' }}
-    >
-      {/* Invisible static placeholder locks width & height, preventing any layout shift */}
-      <span className="invisible col-start-1 row-start-1 pointer-events-none select-none">{longest}</span>
-      <span className="col-start-1 row-start-1">
-        {text}
-        <span
-          aria-hidden
-          className="inline-block align-middle ml-0.5"
-          style={{
-            width: '2px',
-            height: '1em',
-            background: 'currentColor',
-            opacity: blinkCaret ? 1 : 0,
-            transition: 'opacity 0.15s linear'
-          }}
-        />
-      </span>
-    </span>
-  )
-}
-
-// Simple count-up hook (triggers once when inView becomes true)
-function useCountUp(target: number, durationSec: number, start: boolean) {
-  const [value, setValue] = useState(0)
-  useEffect(() => {
-    if (!start) return
-    let raf = 0
-    const startTs = performance.now()
-    const step = (now: number) => {
-      const p = Math.min((now - startTs) / (durationSec * 1000), 1)
-      // easeOutCubic
-      const eased = 1 - Math.pow(1 - p, 3)
-      setValue(target * eased)
-      if (p < 1) raf = requestAnimationFrame(step)
-    }
-    raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [target, durationSec, start])
-  return value
-}
-
-// Shared type for stats and animated card component
-type Stat = { label: string; type: 'num' | 'text'; value?: number; format?: (n: number) => string; text?: string }
-
-function AnimatedStatCard({ stat }: { stat: Stat }) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const inView = useInView(ref, { amount: 0.6, once: true })
-  const val = useCountUp(stat.type === 'num' ? (stat.value ?? 0) : 0, 1.2, inView)
-  const display = stat.type === 'num' ? (stat.format ? stat.format(val) : Math.round(val).toString()) : stat.text
-  return (
-    <div ref={ref}>
-      <Card className="p-5 hover:shadow-md transition-shadow bg-gray-900 border-gray-800 relative overflow-hidden">
-        <div aria-hidden className="absolute -top-10 -left-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
-        <div className="text-3xl font-bold tracking-tight">{display}</div>
-        <div className="text-sm text-gray-400">{stat.label}</div>
-      </Card>
-    </div>
-  )
-}
-
-function Marquee({ children, speed = 40 }: { children: ReactNode[]; speed?: number }) {
-  // speed in px/sec
-  const wrapRef = useRef<HTMLDivElement | null>(null)
-  const trackRef = useRef<HTMLDivElement | null>(null)
-  const [trackW, setTrackW] = useState(0)
-  const [clones, setClones] = useState(2) // minimum 2 tracks to loop
-  const x = useMotionValue(0)
-
-  useEffect(() => {
-    const el = trackRef.current
-    const wrap = wrapRef.current
-    if (!el) return
-    const update = () => {
-      const base = el.scrollWidth
-      const wrapW = wrap?.clientWidth ?? 0
-      setTrackW(base)
-      if (base > 0 && wrapW > 0) {
-        const needed = Math.max(2, Math.ceil(wrapW / base) + 1) // enough to always cover viewport
-        setClones(needed)
-      }
-    }
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    if (wrap) ro.observe(wrap)
-    update()
-    return () => ro.disconnect()
-  }, [])
-
-  // RAF-driven loop to avoid keyframe resets
-  useAnimationFrame((_, delta) => {
-    if (trackW <= 0) return
-    const dist = (speed * delta) / 1000 // px advanced this frame
-    let next = x.get() - dist
-    // Robust wrap to handle large frame gaps (e.g., background tab throttling)
-    if (next <= -trackW || next > 0) {
-      // keep x in [-trackW, 0)
-      next = -(((-next) % trackW))
-    }
-    x.set(next)
-  })
-
-  // Normalize x when content width changes (images load / resize)
-  useEffect(() => {
-    if (trackW <= 0) return
-    const cur = x.get()
-    if (cur < -trackW || cur > 0) {
-      x.set(-(((-cur) % trackW)))
-    }
-  }, [trackW])
-
-  return (
-    <div ref={wrapRef} className="overflow-hidden">
-      <motion.div className="flex gap-3 will-change-transform" style={{ x }}>
-        <div ref={trackRef} className="flex gap-3">{children}</div>
-        {Array.from({ length: Math.max(1, clones - 1) }).map((_, i) => (
-          <div key={i} className="flex gap-3" aria-hidden>
-            {children}
-          </div>
-        ))}
-      </motion.div>
-    </div>
-  )
-}
 
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement | null>(null)
@@ -262,6 +21,8 @@ export default function LandingPage() {
   // Drawer privacy (no modal): opened via left bookmark
   const [privacyOpen, setPrivacyOpen] = useState(false)
   const [faqOpen, setFaqOpen] = useState(false)
+  const [successOpen, setSuccessOpen] = useState(false)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   // Smooth scroll utility (accounts for sticky header height)
   const smoothScrollTo = (selector: string) => {
@@ -287,6 +48,14 @@ export default function LandingPage() {
     }
   }, [openSignup])
 
+  // Close signup modal on Escape
+  useEffect(() => {
+    if (!openSignup) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenSignup(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openSignup])
+
   // Close privacy drawer on Escape
   useEffect(() => {
     if (!privacyOpen) return
@@ -301,6 +70,35 @@ export default function LandingPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [faqOpen])
+  // Auto-hide success popup
+  useEffect(() => {
+    if (!successOpen) return
+    const t = setTimeout(() => setSuccessOpen(false), 9000)
+    return () => clearTimeout(t)
+  }, [successOpen])
+  // Close success popup on Escape
+  useEffect(() => {
+    if (!successOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSuccessOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [successOpen])
+
+  // Read registration flag from localStorage
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('lead_registered')
+      setAlreadyRegistered(!!v)
+    } catch {
+      setAlreadyRegistered(false)
+    }
+  }, [])
+
+  // When success popup opens, mark as registered (defensive if opened from other entry points)
+  useEffect(() => {
+    if (!successOpen) return
+    try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch {}
+  }, [successOpen])
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-brand-500/30">
       {/* Top bar */}
@@ -317,11 +115,24 @@ export default function LandingPage() {
             <a href="#chi" onClick={(e) => handleAnchorClick(e, '#chi')} className="hover:text-brand-600 transition-colors">ANT</a>
             <a href="#partners" onClick={(e) => handleAnchorClick(e, '#partners')} className="hover:text-brand-600 transition-colors">Partner</a>
             <a href="#faq" onClick={(e) => handleAnchorClick(e, '#faq')} className="hover:text-brand-600 transition-colors">FAQ</a>
-            <a href="#iscriviti" onClick={(e) => { e.preventDefault(); setOpenSignup(true) }} className="hover:text-brand-600 transition-colors cursor-pointer">Iscriviti</a>
+            <a
+              href="#iscriviti"
+              onClick={(e) => {
+                e.preventDefault();
+                if (alreadyRegistered) return;
+                setOpenSignup(true)
+              }}
+              className={`transition-colors cursor-pointer ${alreadyRegistered ? 'text-gray-500 cursor-not-allowed' : 'hover:text-brand-600'}`}
+              aria-disabled={alreadyRegistered}
+            >
+              {alreadyRegistered ? 'Già iscritto' : 'Iscriviti'}
+            </a>
           </nav>
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="shadow-sm">
-              <a href="#iscriviti" onClick={(e) => { e.preventDefault(); setOpenSignup(true) }} aria-label="Iscriviti gratis ora">Iscriviti</a>
+            <Button asChild size="sm" className="shadow-sm" disabled={alreadyRegistered}>
+              <a href="#iscriviti" onClick={(e) => { e.preventDefault(); if (!alreadyRegistered) setOpenSignup(true) }} aria-label={alreadyRegistered ? 'Già iscritto' : 'Iscriviti gratis ora'}>
+                {alreadyRegistered ? 'Già iscritto' : 'Iscriviti'}
+              </a>
             </Button>
           </div>
         </div>
@@ -388,8 +199,8 @@ export default function LandingPage() {
               {[0, 2].map((i) => (
                 <motion.div key={i} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
                   {i === 0 && (
-                    <Button onClick={() => setOpenSignup(true)} className="relative h-12 px-8 text-base font-semibold bg-brand-600 hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 rounded-md transition-colors cta-glow overflow-hidden" aria-label="Iscriviti gratis ora">
-                      <span className="relative z-10">Iscriviti gratis ora</span>
+                    <Button onClick={() => { if (!alreadyRegistered) setOpenSignup(true) }} disabled={alreadyRegistered} className="relative h-12 px-8 text-base font-semibold bg-brand-600 hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 rounded-md transition-colors cta-glow overflow-hidden disabled:opacity-60 disabled:hover:bg-brand-600" aria-label={alreadyRegistered ? 'Già iscritto' : 'Iscriviti gratis ora'}>
+                      <span className="relative z-10">{alreadyRegistered ? 'Già iscritto' : 'Iscriviti gratis ora'}</span>
                       <span aria-hidden className="cta-particles">
                         {Array.from({ length: 14 }).map((_, p) => (
                           <span key={p} style={{
@@ -417,11 +228,17 @@ export default function LandingPage() {
             </motion.div>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-10 flex items-center gap-5 text-xs text-gray-400">
               <div className="flex -space-x-2">
-                {[1, 2, 3].map(a => (
-                  <span key={a} className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-700 bg-gray-800 text-[10px] font-semibold shadow">AI</span>
+                {[1, 2, 3].map(n => (
+                  <img
+                    key={n}
+                    src={new URL(`./assets/review/${n}.png`, import.meta.url).href}
+                    alt={`Recensione ${n}`}
+                    className="h-7 w-7 rounded-full border border-gray-700 object-cover shadow"
+                    loading="lazy"
+                  />
                 ))}
               </div>
-              <span>Oltre 1.000 persone formate</span>
+              <span>Oltre 1.337 persone formate</span>
               <span className="hidden sm:inline">• Punteggio medio 4.8/5</span>
             </motion.div>
             {/* Info bar sintetica (ex sezioni) */}
@@ -461,7 +278,7 @@ export default function LandingPage() {
             <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[85%]">
               <div className="rounded-lg border border-gray-800 bg-gray-900/70 backdrop-blur shadow-md p-4 flex items-center gap-4">
                 <div className="text-3xl font-bold tracking-tight">4.8/5</div>
-                <p className="text-xs leading-snug text-gray-400">Valutazione media su 1.000+ partecipanti
+                <p className="text-xs leading-snug text-gray-400">Valutazione media su 1.337+ partecipanti
                   <br /><span className="font-medium text-brand-300">Iscriviti prima che si chiuda</span></p>
               </div>
             </motion.div>
@@ -471,8 +288,8 @@ export default function LandingPage() {
       </section>
 
       {/* Sezione iscrizione spostata sotto la hero */}
-      <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
-        <SignupForm onOpenPrivacy={() => setPrivacyOpen(true)} />
+    <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
+  <SignupForm alreadyRegistered={alreadyRegistered} onOpenPrivacy={() => setPrivacyOpen(true)} onSuccess={() => setSuccessOpen(true)} />
       </Section>
 
       {/* Prova sociale (spostata sotto "Cosa imparerai") */}
@@ -508,7 +325,7 @@ export default function LandingPage() {
         <motion.div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6" initial="hidden" whileInView="show" viewport={{ once: true }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
           {(() => {
             const stats: Stat[] = [
-              { label: 'Persone formate', type: 'num', value: 1000, format: (n) => Math.round(n).toLocaleString('it-IT') + '+' },
+              { label: 'Persone formate', type: 'num', value: 1337, format: (n) => Math.round(n).toLocaleString('it-IT') + '+' },
               { label: 'Valutazione media', type: 'num', value: 4.8, format: (n) => n.toFixed(1) + '/5' },
               { label: 'Percorso rapido', type: 'num', value: 2.5, format: (n) => n.toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' giornate' },
               { label: 'Supporto dedicato', type: 'text', text: 'Mentor' },
@@ -522,11 +339,12 @@ export default function LandingPage() {
         </motion.div>
 
         {/* Partner istituzionali — strip adiacente alle review */}
-        <div id="partners" className="mt-10">
+    <div id="partners" className="mt-10">
           <div className="relative overflow-hidden rounded-md border border-gray-800 bg-gray-900/60 p-3 sm:p-4">
             <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-gray-900/60 to-transparent" />
             <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-gray-900/60 to-transparent" />
-            <Marquee speed={24}>
+      {/* Slow down to ~8 px/s to achieve ~3–4 min per full loop depending on content width */}
+      <Marquee speed={8}>
               {[0,1,2,3].map((i) => (
                 <img
                   key={i}
@@ -534,7 +352,8 @@ export default function LandingPage() {
                   alt={i === 0 ? "Loghi: Finanziato dall'Unione europea – NextGenerationEU, Repubblica Italiana, ANPAL – Agenzia Nazionale Politiche Attive del Lavoro, Ministero del Lavoro e delle Politiche Sociali, Regione Lombardia, GOL – Garanzia Occupabilità Lavoratori" : ''}
                   aria-hidden={i !== 0}
                   className="h-10 sm:h-12 md:h-14 lg:h-16 w-auto object-contain shrink-0"
-                  loading={i === 0 ? 'eager' : 'lazy'}
+          loading={'eager'}
+          decoding="async"
                 />
               ))}
             </Marquee>
@@ -759,7 +578,9 @@ export default function LandingPage() {
             <CheckCircleIcon className="h-4 w-4 text-green-500" />
             Non servono competenze tecniche avanzate
           </span>
-          <Button size="sm" className="h-8" onClick={() => setOpenSignup(true)}>Mi riconosco: iscrivimi →</Button>
+          <Button size="sm" className="h-8" onClick={() => { if (!alreadyRegistered) setOpenSignup(true) }} disabled={alreadyRegistered}>
+            {alreadyRegistered ? 'Già iscritto' : 'Mi riconosco: iscrivimi →'}
+          </Button>
         </div>
       </Section>
 
@@ -815,20 +636,7 @@ export default function LandingPage() {
 
       {/* FAQ */}
       <Section id="faq" title="Domande frequenti">
-        <div className="grid md:grid-cols-2 gap-6">
-          {[
-            { q: 'Serve esperienza tecnica?', a: 'No, partiamo da zero.' },
-            { q: 'Quanto costa?', a: 'Iscrizione gratuita' },
-            { q: 'Quanto tempo richiede?', a: '4 ore al giorno.' },
-            { q: 'Che supporto ricevo?', a: 'Mentor e community.' },
-            { q: 'Entro quando posso iscrivermi?', a: 'Fino all’avvio delle sessioni di Autunno (posti limitati).' },
-          ].map((f) => (
-            <Card key={f.q} className="p-5">
-              <div className="font-semibold">{f.q}</div>
-              <p className="text-sm text-gray-300">{f.a}</p>
-            </Card>
-          ))}
-        </div>
+        <FAQContent columns={2} />
       </Section>
 
 
@@ -860,8 +668,84 @@ export default function LandingPage() {
                 </div>
                 <button onClick={() => setOpenSignup(false)} aria-label="Chiudi modale" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
               </div>
-              <SignupForm onSuccess={() => setTimeout(() => setOpenSignup(false), 1400)} onOpenPrivacy={() => setPrivacyOpen(true)} />
+              <SignupForm
+                alreadyRegistered={alreadyRegistered}
+                onSuccess={() => {
+                  // Close modal first, then show success popup to avoid overlap
+                  setOpenSignup(false)
+                  setTimeout(() => setSuccessOpen(true), 350)
+                  try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch {}
+                }}
+                onOpenPrivacy={() => setPrivacyOpen(true)}
+              />
               <p className="mt-4 text-[11px] text-gray-500">Compilando registri il tuo interesse. Ti ricontattiamo con i prossimi slot.</p>
+            </Card>
+          </motion.div>
+        </div>
+      )}
+      {/* Success Popup */}
+      {successOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-black/40 z-0"
+            onClick={() => { setSuccessOpen(false); setOpenSignup(false); setPrivacyOpen(false) }}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            className="relative w-full max-w-md z-10"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-labelledby="success-title"
+            aria-describedby="success-desc"
+          >
+            <Card className="overflow-hidden border-gray-800 bg-gray-950">
+              <div aria-hidden className="absolute -top-20 -right-24 h-56 w-56 rounded-full bg-brand-500/20 blur-3xl pointer-events-none z-0" />
+              <div className="relative z-10 p-6">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-green-600/20 text-green-400 border border-green-700/40 relative">
+                    <CheckCircleIcon className="h-6 w-6" />
+                    {/* success particles */}
+                    <span aria-hidden className="absolute inset-0 pointer-events-none">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <span key={i} className="absolute block h-1 w-1 bg-green-400/80 rounded-full" style={{
+                          left: '50%', top: '50%',
+                          transform: `translate(-50%, -50%)`,
+                          ['--tx' as any]: `${(Math.random() * 140 - 70).toFixed(0)}px`,
+                          ['--ty' as any]: `${(Math.random() * 80 - 40).toFixed(0)}px`,
+                          animation: `popup-spark ${(2.4 + Math.random()).toFixed(2)}s ease-out ${(Math.random() * 0.6).toFixed(2)}s forwards`
+                        }} />
+                      ))}
+                    </span>
+                  </span>
+                  <div>
+                    <h3 id="success-title" className="text-lg font-bold tracking-tight">Grazie! Iscrizione inviata</h3>
+                    <p id="success-desc" className="text-sm text-gray-300 mt-1">Abbiamo registrato la tua richiesta. Ti contatteremo al più presto con i prossimi slot e tutte le informazioni utili.</p>
+                  </div>
+                </div>
+        <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSuccessOpen(false);
+                      setOpenSignup(false);
+                      setPrivacyOpen(false);
+                      setTimeout(() => setSuccessOpen(false), 0);
+                    }}
+          className="relative z-20 pointer-events-auto px-3 py-1.5 text-sm rounded bg-gray-800 hover:bg-gray-700 border border-gray-700"
+                  >
+                    Chiudi
+                  </button>
+                </div>
+              </div>
             </Card>
           </motion.div>
         </div>

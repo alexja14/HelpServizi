@@ -9,7 +9,19 @@ const DEFAULT_FAQ: FAQ[] = [
   { q: 'Entro quando posso iscrivermi?', a: 'Fino all’avvio delle sessioni di Autunno, posti limitati.' },
 ]
 
-export function FAQContent({ items = DEFAULT_FAQ }: { items?: FAQ[] }) {
+export function FAQContent({ items = DEFAULT_FAQ, columns = 1 }: { items?: FAQ[]; columns?: 1 | 2 }) {
+  if (columns === 2) {
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        {items.map((f) => (
+          <div key={f.q} className="rounded-md border border-gray-800 bg-gray-900/70 p-4">
+            <div className="font-semibold">{f.q}</div>
+            <p className="text-sm text-gray-300 mt-1">{f.a}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="space-y-3">
       {items.map((f) => (
