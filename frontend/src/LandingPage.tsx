@@ -1,9 +1,12 @@
-import { CheckCircleIcon } from '@heroicons/react/24/solid'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { CheckCircleIcon, ShieldCheckIcon, AcademicCapIcon, HandThumbUpIcon, BriefcaseIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/solid'
+import { motion, useScroll, useTransform, useInView, useMotionValue, useAnimationFrame } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
 import { useRef, useState, useEffect, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { PrivacyContent } from './components/PrivacyContent'
+import { FAQContent } from './components/FAQContent'
+import { ExpectedResults } from './components/ExpectedResults'
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
@@ -148,12 +151,117 @@ function TypingHeadline({ phrases, className }: { phrases: string[]; className?:
   )
 }
 
+// Simple count-up hook (triggers once when inView becomes true)
+function useCountUp(target: number, durationSec: number, start: boolean) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!start) return
+    let raf = 0
+    const startTs = performance.now()
+    const step = (now: number) => {
+      const p = Math.min((now - startTs) / (durationSec * 1000), 1)
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - p, 3)
+      setValue(target * eased)
+      if (p < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target, durationSec, start])
+  return value
+}
+
+// Shared type for stats and animated card component
+type Stat = { label: string; type: 'num' | 'text'; value?: number; format?: (n: number) => string; text?: string }
+
+function AnimatedStatCard({ stat }: { stat: Stat }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const inView = useInView(ref, { amount: 0.6, once: true })
+  const val = useCountUp(stat.type === 'num' ? (stat.value ?? 0) : 0, 1.2, inView)
+  const display = stat.type === 'num' ? (stat.format ? stat.format(val) : Math.round(val).toString()) : stat.text
+  return (
+    <div ref={ref}>
+      <Card className="p-5 hover:shadow-md transition-shadow bg-gray-900 border-gray-800 relative overflow-hidden">
+        <div aria-hidden className="absolute -top-10 -left-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
+        <div className="text-3xl font-bold tracking-tight">{display}</div>
+        <div className="text-sm text-gray-400">{stat.label}</div>
+      </Card>
+    </div>
+  )
+}
+
+function Marquee({ children, speed = 40 }: { children: ReactNode[]; speed?: number }) {
+  // speed in px/sec
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const [trackW, setTrackW] = useState(0)
+  const [clones, setClones] = useState(2) // minimum 2 tracks to loop
+  const x = useMotionValue(0)
+
+  useEffect(() => {
+    const el = trackRef.current
+    const wrap = wrapRef.current
+    if (!el) return
+    const update = () => {
+      const base = el.scrollWidth
+      const wrapW = wrap?.clientWidth ?? 0
+      setTrackW(base)
+      if (base > 0 && wrapW > 0) {
+        const needed = Math.max(2, Math.ceil(wrapW / base) + 1) // enough to always cover viewport
+        setClones(needed)
+      }
+    }
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    if (wrap) ro.observe(wrap)
+    update()
+    return () => ro.disconnect()
+  }, [])
+
+  // RAF-driven loop to avoid keyframe resets
+  useAnimationFrame((_, delta) => {
+    if (trackW <= 0) return
+    const dist = (speed * delta) / 1000 // px advanced this frame
+    let next = x.get() - dist
+    // Robust wrap to handle large frame gaps (e.g., background tab throttling)
+    if (next <= -trackW || next > 0) {
+      // keep x in [-trackW, 0)
+      next = -(((-next) % trackW))
+    }
+    x.set(next)
+  })
+
+  // Normalize x when content width changes (images load / resize)
+  useEffect(() => {
+    if (trackW <= 0) return
+    const cur = x.get()
+    if (cur < -trackW || cur > 0) {
+      x.set(-(((-cur) % trackW)))
+    }
+  }, [trackW])
+
+  return (
+    <div ref={wrapRef} className="overflow-hidden">
+      <motion.div className="flex gap-3 will-change-transform" style={{ x }}>
+        <div ref={trackRef} className="flex gap-3">{children}</div>
+        {Array.from({ length: Math.max(1, clones - 1) }).map((_, i) => (
+          <div key={i} className="flex gap-3" aria-hidden>
+            {children}
+          </div>
+        ))}
+      </motion.div>
+    </div>
+  )
+}
+
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement | null>(null)
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
   const yCloud = useTransform(scrollYProgress, [0, 1], [0, 120])
   const [openSignup, setOpenSignup] = useState(false)
-  const [openPrivacy, setOpenPrivacy] = useState(false)
+  // Drawer privacy (no modal): opened via left bookmark
+  const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [faqOpen, setFaqOpen] = useState(false)
 
   // Smooth scroll utility (accounts for sticky header height)
   const smoothScrollTo = (selector: string) => {
@@ -170,14 +278,29 @@ export default function LandingPage() {
     smoothScrollTo(selector)
   }
 
-  // Prevent body scroll when modal open
+  // Prevent body scroll only when signup modal is open (privacy drawer is non-modal)
   useEffect(() => {
-    if (openSignup || openPrivacy) {
+    if (openSignup) {
       const original = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       return () => { document.body.style.overflow = original }
     }
-  }, [openSignup, openPrivacy])
+  }, [openSignup])
+
+  // Close privacy drawer on Escape
+  useEffect(() => {
+    if (!privacyOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPrivacyOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [privacyOpen])
+  // Close FAQ drawer on Escape
+  useEffect(() => {
+    if (!faqOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFaqOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [faqOpen])
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-brand-500/30">
       {/* Top bar */}
@@ -192,9 +315,9 @@ export default function LandingPage() {
             <a href="#cosa" onClick={(e) => handleAnchorClick(e, '#cosa')} className="hover:text-brand-600 transition-colors">Competenze</a>
             <a href="#come" onClick={(e) => handleAnchorClick(e, '#come')} className="hover:text-brand-600 transition-colors">Metodo</a>
             <a href="#chi" onClick={(e) => handleAnchorClick(e, '#chi')} className="hover:text-brand-600 transition-colors">ANT</a>
+            <a href="#partners" onClick={(e) => handleAnchorClick(e, '#partners')} className="hover:text-brand-600 transition-colors">Partner</a>
             <a href="#faq" onClick={(e) => handleAnchorClick(e, '#faq')} className="hover:text-brand-600 transition-colors">FAQ</a>
             <a href="#iscriviti" onClick={(e) => { e.preventDefault(); setOpenSignup(true) }} className="hover:text-brand-600 transition-colors cursor-pointer">Iscriviti</a>
-            <a href="#privacy" className="hover:text-brand-600 transition-colors">Privacy</a>
           </nav>
           <div className="flex items-center gap-2">
             <Button asChild size="sm" className="shadow-sm">
@@ -203,6 +326,8 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
+
+  {/* (strip partner sopra la hero rimossa; la posizioniamo sotto la sezione Iscriviti) */}
 
       {/* Hero */}
       <section ref={heroRef} className="relative overflow-hidden">
@@ -221,7 +346,7 @@ export default function LandingPage() {
             >
               <span className="block">
                 <span className="relative inline-block word-glow">
-                  <span className="word-text text-gradient-brand">Potenzia</span>
+                  <span className="word-text text-gradient-brand">Potenzia GRATIS</span>
                   <span aria-hidden className="word-particles">
                     {Array.from({ length: 10 }).map((_, i) => (
                       <span key={i} style={{ ['--tx' as any]: `${(Math.random() * 140 - 70).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 60 - 30).toFixed(0)}px`, ['--dur' as any]: `${(5 + Math.random() * 4).toFixed(2)}s`, animationDelay: `${(Math.random() * 4).toFixed(2)}s` }} />
@@ -250,7 +375,7 @@ export default function LandingPage() {
               transition={{ duration: 0.7, delay: 0.12 }}
               className="text-gray-300 text-lg mb-7 max-w-xl"
             >
-              Corso online 20 ore (5 moduli): live brevi + studio asincrono. Strumenti concreti di Intelligenza Artificiale per CV, portfolio, colloqui e micro‑automazioni. Accessibile anche da smartphone.
+              Corso online 20 ore (5 moduli): live brevi in tutta l'Italia <strong>ONLINE</strong>. Strumenti concreti di Intelligenza Artificiale per CV, portfolio, colloqui e micro‑automazioni. Accessibile anche da smartphone. <span className="text-brand-400 font-semibold">GRATIS</span>
             </motion.p>
             <motion.div className="flex flex-wrap items-center gap-3 mb-8" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
               {['Posti limitati', 'Mentor & career support', '100% pratico'].map(tag => (
@@ -260,7 +385,7 @@ export default function LandingPage() {
               ))}
             </motion.div>
             <motion.div className="flex flex-wrap gap-4" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12 } } }}>
-              {[0, 1, 2].map((i) => (
+              {[0, 2].map((i) => (
                 <motion.div key={i} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
                   {i === 0 && (
                     <Button onClick={() => setOpenSignup(true)} className="relative h-12 px-8 text-base font-semibold bg-brand-600 hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 rounded-md transition-colors cta-glow overflow-hidden" aria-label="Iscriviti gratis ora">
@@ -276,11 +401,6 @@ export default function LandingPage() {
                           }} />
                         ))}
                       </span>
-                    </Button>
-                  )}
-                  {i === 1 && (
-                    <Button variant="outline" className="h-12 px-7 text-base border-gray-700 hover:bg-gray-800" asChild aria-label="Scarica il programma">
-                      <a href="#programma" onClick={(e) => handleAnchorClick(e, '#programma')}>Scarica il programma</a>
                     </Button>
                   )}
                   {i === 2 && (
@@ -352,42 +472,158 @@ export default function LandingPage() {
 
       {/* Sezione iscrizione spostata sotto la hero */}
       <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
-        <SignupForm onOpenPrivacy={() => setOpenPrivacy(true)} />
+        <SignupForm onOpenPrivacy={() => setPrivacyOpen(true)} />
       </Section>
 
-      {/* Prova sociale */}
+      {/* Prova sociale (spostata sotto "Cosa imparerai") */}
       <Section title="Perché fidarti di noi">
+        {/* Trust badges */}
+        <motion.ul
+          className="grid sm:grid-cols-3 gap-3 mb-6"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '-80px' }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+        >
+          {[
+            { icon: ShieldCheckIcon, title: 'Trasparenza', desc: 'Info chiare, niente sorprese' },
+            { icon: AcademicCapIcon, title: 'Docenti senior', desc: 'Pratica su casi reali' },
+            { icon: HandThumbUpIcon, title: 'Valutazioni top', desc: 'Community soddisfatta' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <motion.li key={title} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
+              <div className="group rounded-md border border-gray-800 bg-gray-900/70 px-4 py-3 flex items-center gap-3 hover:border-brand-600/40 transition-colors">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-600/15 text-brand-300 border border-brand-700/40">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="leading-tight">
+                  <div className="text-sm font-semibold">{title}</div>
+                  <div className="text-xs text-gray-400">{desc}</div>
+                </div>
+              </div>
+            </motion.li>
+          ))}
+        </motion.ul>
+
+        {/* Animated stats */}
         <motion.div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6" initial="hidden" whileInView="show" viewport={{ once: true }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
-          {[
-            { label: 'Persone formate', value: '1.000+' },
-            { label: 'Valutazione media', value: '4.8/5' },
-            { label: 'Percorso rapido', value: '2.5 giornate' },
-            { label: 'Supporto dedicato', value: 'Mentor' },
-          ].map(stat => (
-            <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
-              <Card className="p-5 hover:shadow-md transition-shadow bg-gray-900 border-gray-800">
-                <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
-                <div className="text-sm text-gray-400">{stat.label}</div>
-              </Card>
-            </motion.div>
-          ))}
+          {(() => {
+            const stats: Stat[] = [
+              { label: 'Persone formate', type: 'num', value: 1000, format: (n) => Math.round(n).toLocaleString('it-IT') + '+' },
+              { label: 'Valutazione media', type: 'num', value: 4.8, format: (n) => n.toFixed(1) + '/5' },
+              { label: 'Percorso rapido', type: 'num', value: 2.5, format: (n) => n.toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' giornate' },
+              { label: 'Supporto dedicato', type: 'text', text: 'Mentor' },
+            ]
+            return stats.map((stat) => (
+              <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <AnimatedStatCard stat={stat} />
+              </motion.div>
+            ))
+          })()}
         </motion.div>
-        <div className="mt-10 grid md:grid-cols-3 gap-6">
-          {[
-            { name: 'Marco R.', role: 'Jr. Analyst', quote: 'Con l’AI ho costruito un portfolio e trovato colloqui in 3 settimane.' },
-            { name: 'Sara P.', role: 'Customer Ops', quote: 'Il corso è pratico e ti guida passo passo: CV, colloqui e automazioni.' },
-            { name: 'Luca B.', role: 'PMO', quote: 'Lezioni chiare e mentoring utile: mi sono candidato con più sicurezza.' },
-          ].map(t => (
-            <motion.div key={t.name} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55 }}>
-              <Card className="p-5 relative overflow-hidden bg-gray-900 border-gray-800">
-                <div aria-hidden className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-br from-brand-500/10 to-transparent pointer-events-none" />
-                <p className="italic">“{t.quote}”</p>
-                <footer className="mt-3 text-sm text-gray-400">{t.name} — {t.role}</footer>
-              </Card>
-            </motion.div>
-          ))}
+
+        {/* Partner istituzionali — strip adiacente alle review */}
+        <div id="partners" className="mt-10">
+          <div className="relative overflow-hidden rounded-md border border-gray-800 bg-gray-900/60 p-3 sm:p-4">
+            <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-gray-900/60 to-transparent" />
+            <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-gray-900/60 to-transparent" />
+            <Marquee speed={24}>
+              {[0,1,2,3].map((i) => (
+                <img
+                  key={i}
+                  src={new URL('./assets/partner/partners.png', import.meta.url).href}
+                  alt={i === 0 ? "Loghi: Finanziato dall'Unione europea – NextGenerationEU, Repubblica Italiana, ANPAL – Agenzia Nazionale Politiche Attive del Lavoro, Ministero del Lavoro e delle Politiche Sociali, Regione Lombardia, GOL – Garanzia Occupabilità Lavoratori" : ''}
+                  aria-hidden={i !== 0}
+                  className="h-10 sm:h-12 md:h-14 lg:h-16 w-auto object-contain shrink-0"
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                />
+              ))}
+            </Marquee>
+          </div>
         </div>
+
+        {/* Testimonials marquee */}
+        <div className="mt-10">
+          <div className="relative overflow-hidden">
+            <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-gray-950 to-transparent" />
+            <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-gray-950 to-transparent" />
+            <Marquee speed={30}>
+              {[
+                { name: 'Marco R.', role: 'Analista junior', quote: 'Portfolio e colloqui in 3 settimane' },
+                { name: 'Sara P.', role: 'Operazioni clienti', quote: 'Corso pratico: CV, colloqui, automazioni' },
+                { name: 'Luca B.', role: 'Project Management Officer', quote: 'Lezioni chiare e mentoring utile' },
+                { name: 'Giulia T.', role: 'Assistente HR', quote: 'Prompt e flussi subito utili al lavoro' },
+                { name: 'Davide N.', role: 'Commerciale', quote: 'Micro‑automazioni che fanno risparmiare tempo' },
+              ].map((t, i) => (
+                <Card key={i} className="w-[280px] shrink-0 px-4 py-3 bg-gray-900/80 border-gray-800/80 shadow-sm">
+                  <p className="text-sm italic leading-snug truncate">“{t.quote}”</p>
+                  <footer className="mt-1 text-[11px] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">{t.name} — {t.role}</footer>
+                </Card>
+              ))}
+            </Marquee>
+          </div>
+        </div>
+
+        {/* Programma GOL — card spostata sotto le testimonianze con titolo animato */}
+        <motion.div initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.6 }}>
+          <Card className="mt-6 p-5 sm:p-6 bg-gray-900 border-gray-800 relative overflow-hidden">
+            <div aria-hidden className="absolute -top-16 -right-10 h-40 w-40 rounded-full bg-brand-500/15 blur-3xl" />
+            <div aria-hidden className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-brand-400/10 blur-3xl" />
+
+            <h3 className="font-bold text-lg sm:text-xl mb-2 relative inline-block word-glow">
+              <span className="word-text text-gradient-brand">GOL × ANT: formazione AI gratuita per ripartire</span>
+              <span aria-hidden className="word-particles">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <span
+                    key={i}
+                    style={{ ['--tx' as any]: `${(Math.random() * 120 - 60).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 50 - 25).toFixed(0)}px`, ['--dur' as any]: `${(4 + Math.random() * 3).toFixed(2)}s`, animationDelay: `${(Math.random() * 3).toFixed(2)}s` }}
+                  />
+                ))}
+              </span>
+            </h3>
+
+            <p className="text-sm text-gray-300">
+              Con GOL (Garanzia di Occupabilità dei Lavoratori) offriamo percorsi gratuiti per l’aggiornamento e il reinserimento lavorativo, in collaborazione con gli enti competenti.
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-gray-300 list-disc pl-5">
+              <li>20 ore di formazione pratica su AI: CV, portfolio, colloqui e micro‑automazioni.</li>
+              <li>Orientamento e accompagnamento al lavoro con mentor e project work reale.</li>
+              <li>Formato flessibile: live + on‑demand, accessibile anche da smartphone.</li>
+            </ul>
+            <h4 className="mt-4 font-semibold relative inline-block word-glow text-base">
+              <span className="word-text text-gradient-brand">Chi può aderire</span>
+              <span aria-hidden className="word-particles">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <span
+                    key={i}
+                    style={{ ['--tx' as any]: `${(Math.random() * 80 - 40).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 30 - 15).toFixed(0)}px`, ['--dur' as any]: `${(3.5 + Math.random() * 2.5).toFixed(2)}s`, animationDelay: `${(Math.random() * 2.5).toFixed(2)}s` }}
+                  />
+                ))}
+              </span>
+            </h4>
+            <div aria-hidden className="h-px w-24 bg-gradient-to-r from-brand-500/60 to-transparent mt-1"></div>
+            <p className="text-sm text-gray-300 mt-1">
+              Disoccupati residenti o domiciliati in Lombardia, inclusi beneficiari di NASPI, DIS‑COLL, Supporto per la Formazione e il Lavoro e Assegno d’Inclusione.
+            </p>
+            <a
+              href="#iscriviti"
+              onClick={(e) => {
+                e.preventDefault()
+                const el = document.querySelector('#iscriviti') as HTMLElement | null
+                if (!el) return
+                const y = el.getBoundingClientRect().top + window.scrollY - 64
+                window.scrollTo({ top: y, behavior: 'smooth' })
+              }}
+              className="inline-block mt-3 text-brand-300 hover:underline text-sm font-medium"
+            >
+              Richiedi l’accesso →
+            </a>
+          </Card>
+        </motion.div>
       </Section>
+
+  {/* (strip partner spostata accanto alla sezione recensioni) */}
+
+      
 
       {/* Cosa imparerai */}
       <Section id="cosa" title="Cosa imparerai">
@@ -409,10 +645,7 @@ export default function LandingPage() {
               ))}
             </ul>
           </div>
-          <Card className="p-6 bg-gray-900 border-gray-800">
-            <h3 className="font-semibold mb-2">Risultati attesi</h3>
-            <p className="text-sm text-gray-700 dark:text-gray-300">CV ottimizzato, 2 progetti AI-assisted, piano d’azione 30 giorni.</p>
-          </Card>
+          <ExpectedResults />
         </div>
       </Section>
 
@@ -456,27 +689,78 @@ export default function LandingPage() {
               ))}
             </ul>
           </Card>
-          <Card className="p-6 bg-gray-900 border-gray-800">
-            <h3 className="font-semibold mb-2">Erogazione remota (solo mode)</h3>
-            <ul className="text-sm text-gray-300 space-y-2">
-              <li>• Live brevi (30–45’) + compiti asincroni</li>
-              <li>• Materiali leggeri (PDF, screenshot, audio ≤5’)</li>
-              <li>• Consegne semplici da smartphone (foto/screenshot)</li>
-              <li>• Office hour settimanale e feedback su rubriche</li>
-            </ul>
-            <a href="/risorse/programma-corso-IA-20-ore.md" download className="inline-block mt-4 text-brand-300 hover:underline font-medium">Scarica il programma completo (.md) →</a>
-          </Card>
+          <ExpectedResults
+            title="Risultati attesi"
+            items={[
+              '2 progetti utilizzando tool AI',
+              'Skill pratici',
+              'Utilizzo prompt engineering',
+            ]}
+          />
         </div>
       </Section>
 
       {/* A chi è rivolto */}
       <Section title="A chi è rivolto">
-        <ul className="grid md:grid-cols-3 gap-4">
-          <Card className="p-5 bg-gray-900 border-gray-800">Persone disoccupate o in transizione</Card>
-          <Card className="p-5 bg-gray-900 border-gray-800">Neodiplomati/neolaureati senza esperienza</Card>
-          <Card className="p-5 bg-gray-900 border-gray-800">Chi desidera rientrare con competenze attuali</Card>
-        </ul>
-        <p className="mt-3 text-sm text-gray-400">Non servono competenze tecniche avanzate.</p>
+        <motion.ul
+          className="grid md:grid-cols-3 gap-4"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '-80px' }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
+        >
+          {[
+            {
+              icon: BriefcaseIcon,
+              title: 'In cerca di lavoro',
+              bullets: ['CV e colloqui con AI', 'Portfolio in 2 settimane'],
+            },
+            {
+              icon: AcademicCapIcon,
+              title: 'Neodiplomati/neolaureati',
+              bullets: ['Competenze subito pratiche', 'Orientamento e mentoring'],
+            },
+            {
+              icon: ArrowTrendingUpIcon,
+              title: 'In transizione o rientro',
+              bullets: ['Reskilling rapido', 'Automazioni leggere per il lavoro'],
+            },
+          ].map(({ icon: Icon, title, bullets }) => (
+            <motion.li
+              key={title}
+              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } }}
+              whileHover={{ y: -4 }}
+              transition={{ type: 'spring', stiffness: 250, damping: 20 }}
+            >
+              <Card className="relative overflow-hidden p-5 bg-gray-900 border-gray-800 hover:border-brand-600/50 transition-colors">
+                <div aria-hidden className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-brand-600/15 text-brand-300 border border-brand-700/40">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="font-semibold">{title}</div>
+                    <ul className="mt-1 space-y-1 text-sm text-gray-300">
+                      {bullets.map((b) => (
+                        <li key={b} className="flex items-start gap-2">
+                          <CheckCircleIcon className="h-4 w-4 mt-0.5 text-green-500" />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            </motion.li>
+          ))}
+        </motion.ul>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-800 bg-gray-900/60 px-3 py-1 text-xs text-gray-300">
+            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+            Non servono competenze tecniche avanzate
+          </span>
+          <Button size="sm" className="h-8" onClick={() => setOpenSignup(true)}>Mi riconosco: iscrivimi →</Button>
+        </div>
       </Section>
 
       {/* Chi siamo */}
@@ -484,7 +768,14 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div>
             <p className="text-gray-300 leading-relaxed">
-              Siamo un team di formatori e professionisti che usano l’AI ogni giorno. La nostra missione è aiutare le persone disoccupate a rientrare nel mercato con competenze pratiche, aggiornate e richieste dalle aziende.
+              ANT Srl è una realtà di formazione e consulenza IT nata per colmare lo skill gap nel mondo digitale. Progettiamo percorsi pratici e orientati all’occupabilità, connettendo giovani talenti e aziende e trasferendo competenze subito spendibili.
+            </p>
+            <h3 className="mt-4 font-semibold">La nostra esperienza formativa</h3>
+            <p className="text-sm text-gray-400 leading-relaxed mt-1">
+              Negli ultimi anni abbiamo supportato lo sviluppo produttivo di circa 40 aziende italiane con programmi altamente professionalizzanti. La collaborazione continua con partner che realizzano progetti software e consulenza IT ci consente di mantenere il polso del mercato e predisporre corsi efficaci, realmente orientati alle esigenze delle imprese.
+            </p>
+            <p className="text-sm text-gray-400 leading-relaxed mt-2">
+              L’esperienza maturata ci permette di garantire standard qualitativi elevati in tutte le fasi del processo formativo: dalla progettazione alla docenza, fino al supporto e placement.
             </p>
             <a className="inline-block mt-4 text-brand-300 hover:underline font-medium" href="#trasparenza">Trasparenza & Team →</a>
           </div>
@@ -517,6 +808,8 @@ export default function LandingPage() {
           </Card>
         </div>
       </Section>
+
+  {/* (sezione Partner con titolo rimossa; ora la strip è sopra la hero) */}
 
       {/* (sezione iscrizione originale rimossa) */}
 
@@ -567,30 +860,79 @@ export default function LandingPage() {
                 </div>
                 <button onClick={() => setOpenSignup(false)} aria-label="Chiudi modale" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
               </div>
-              <SignupForm onSuccess={() => setTimeout(() => setOpenSignup(false), 1400)} onOpenPrivacy={() => setOpenPrivacy(true)} />
+              <SignupForm onSuccess={() => setTimeout(() => setOpenSignup(false), 1400)} onOpenPrivacy={() => setPrivacyOpen(true)} />
               <p className="mt-4 text-[11px] text-gray-500">Compilando registri il tuo interesse. Ti ricontattiamo con i prossimi slot.</p>
             </Card>
           </motion.div>
         </div>
       )}
-      {/* Modal Privacy */}
-      {openPrivacy && (
-        <div role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title" className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenPrivacy(false)} aria-hidden />
-          <motion.div initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="relative w-full max-w-4xl mx-auto">
-            <Card className="p-6 md:p-8 bg-gray-950 border-gray-800 shadow-xl max-h-[80vh] overflow-y-auto">
-              <div className="flex items-start justify-between mb-4">
-                <h2 id="privacy-modal-title" className="text-xl font-bold tracking-tight">Informativa Privacy</h2>
-                <div className="flex gap-2 items-center">
-                  <a href="#privacy" className="text-xs text-brand-300 hover:underline" onClick={() => setOpenPrivacy(false)}>Apri pagina completa →</a>
-                  <button onClick={() => setOpenPrivacy(false)} aria-label="Chiudi modale" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
-                </div>
-              </div>
-              <PrivacyContent />
-            </Card>
-          </motion.div>
-        </div>
-      )}
+      {/* Privacy left bookmark + slide-out drawer (non-modal) */}
+      {/* Bookmark */}
+      <button
+        type="button"
+        onClick={() => setPrivacyOpen(true)}
+        aria-label="Apri informativa privacy"
+        className="fixed left-0 top-1/2 -translate-y-1/2 z-[60] -ml-1 h-28 w-9 sm:w-10 rounded-r-md border border-l-0 border-brand-700/40 bg-brand-600/90 text-white shadow hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+      >
+        <span className="block w-full text-center text-[10px] font-semibold tracking-wide" style={{ transform: 'rotate(-90deg)' }}>
+          Privacy
+        </span>
+      </button>
+      {/* Drawer panel */}
+      <motion.aside
+        role="complementary"
+        aria-labelledby="privacy-drawer-title"
+        className="fixed top-0 left-0 h-full w-[92%] sm:w-[460px] max-w-[92%] z-[70]"
+        initial={false}
+        animate={{ x: privacyOpen ? 0 : '-100%' }}
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+      >
+        <Card className="h-full bg-gray-950/98 border-gray-800 rounded-none rounded-r-lg shadow-2xl flex flex-col">
+          <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-gray-800 bg-gray-950/80">
+            <div>
+              <h2 id="privacy-drawer-title" className="text-base sm:text-lg font-bold tracking-tight">Informativa Privacy</h2>
+              <a href="#privacy" className="text-[11px] text-brand-300 hover:underline" onClick={() => setPrivacyOpen(false)}>Apri pagina completa →</a>
+            </div>
+            <button onClick={() => setPrivacyOpen(false)} aria-label="Chiudi privacy" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            <PrivacyContent />
+          </div>
+        </Card>
+      </motion.aside>
+      {/* FAQ right bookmark */}
+      <button
+        type="button"
+        onClick={() => setFaqOpen(true)}
+        aria-label="Apri domande frequenti"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] -mr-1 h-28 w-9 sm:w-10 rounded-l-md border border-r-0 border-indigo-700/40 bg-indigo-600/90 text-white shadow hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+      >
+        <span className="block w-full text-center text-[10px] font-semibold tracking-wide" style={{ transform: 'rotate(90deg)' }}>
+          FAQ
+        </span>
+      </button>
+      {/* FAQ Drawer panel (non-modal) */}
+      <motion.aside
+        role="complementary"
+        aria-labelledby="faq-drawer-title"
+        className="fixed top-0 right-0 h-full w-[92%] sm:w-[460px] max-w-[92%] z-[70]"
+        initial={false}
+        animate={{ x: faqOpen ? 0 : '100%' }}
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+      >
+        <Card className="h-full bg-gray-950/98 border-gray-800 rounded-none rounded-l-lg shadow-2xl flex flex-col">
+          <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-gray-800 bg-gray-950/80">
+            <div>
+              <h2 id="faq-drawer-title" className="text-base sm:text-lg font-bold tracking-tight">Domande frequenti</h2>
+              <a href="#faq-page" className="text-[11px] text-indigo-300 hover:underline" onClick={() => setFaqOpen(false)}>Apri pagina completa →</a>
+            </div>
+            <button onClick={() => setFaqOpen(false)} aria-label="Chiudi FAQ" className="rounded px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-800">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            <FAQContent />
+          </div>
+        </Card>
+      </motion.aside>
     </div>
   );
 }

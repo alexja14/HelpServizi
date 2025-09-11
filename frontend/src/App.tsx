@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import LandingPage from './LandingPage'
 import AdminPanel from './AdminPanel'
 import PrivacyPage from './PrivacyPage'
+import FAQPage from './FAQPage'
 
 function App() {
   const [hash, setHash] = useState(window.location.hash)
@@ -27,6 +28,7 @@ function App() {
 
   if (hash === '#admin') return <AdminPanel />
   if (hash === '#privacy') return <PrivacyPage />
+  if (hash === '#faq-page') return <FAQPage />
   return <LandingPage />
 }
 
