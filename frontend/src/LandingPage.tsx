@@ -185,9 +185,10 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
           <a className="flex items-center gap-2" href="#" aria-label="Home">
             <img src="/logo.svg" alt="Logo corso" className="h-6 w-6" />
-            <span className="ml-1 font-semibold">AI Prestazioni Lavorative</span>
+            <span className="ml-1 font-semibold">AI GOL</span>
           </a>
           <nav className="hidden md:flex gap-6 text-sm font-medium">
+            <a href="#programma" onClick={(e) => handleAnchorClick(e, '#programma')} className="hover:text-brand-600 transition-colors">Programma</a>
             <a href="#cosa" onClick={(e) => handleAnchorClick(e, '#cosa')} className="hover:text-brand-600 transition-colors">Competenze</a>
             <a href="#come" onClick={(e) => handleAnchorClick(e, '#come')} className="hover:text-brand-600 transition-colors">Metodo</a>
             <a href="#chi" onClick={(e) => handleAnchorClick(e, '#chi')} className="hover:text-brand-600 transition-colors">ANT</a>
@@ -227,7 +228,7 @@ export default function LandingPage() {
                     ))}
                   </span>
                 </span>{' '}
-                <span className="text-gradient-brand">la tua carriera </span><span className="word-text text-gradient-brand">con</span> <span className="word-text text-gradient-brand">l’AI</span>
+                <span className="text-gradient-brand">la tua carriera </span><span className="word-text text-gradient-brand">con</span> <span className="word-text text-gradient-brand">AI GOL</span>
 
                 <span className="relative inline-block word-glow ml-1">
 
@@ -249,7 +250,7 @@ export default function LandingPage() {
               transition={{ duration: 0.7, delay: 0.12 }}
               className="text-gray-300 text-lg mb-7 max-w-xl"
             >
-              Percorso intensivo equivalente a 2.5 giornate: strumenti concreti di Intelligenza Artificiale per CV, portfolio, colloqui e micro-automazioni. Impara facendo e rientra più velocemente nel lavoro.
+              Corso online 20 ore (5 moduli): live brevi + studio asincrono. Strumenti concreti di Intelligenza Artificiale per CV, portfolio, colloqui e micro‑automazioni. Accessibile anche da smartphone.
             </motion.p>
             <motion.div className="flex flex-wrap items-center gap-3 mb-8" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
               {['Posti limitati', 'Mentor & career support', '100% pratico'].map(tag => (
@@ -431,7 +432,40 @@ export default function LandingPage() {
           ))}
         </div>
         <div className="mt-6 text-sm text-gray-400">
-          Durata: 2.5 giornate (intensivo) · Formato: Online, materiali sempre disponibili · Supporto: Mentor e community
+          Durata: 20 ore (5 moduli) · Formato: Online, anche "solo mode" · Supporto: Mentor, office hour, materiali sempre disponibili
+        </div>
+      </Section>
+
+      {/* Programma dettagliato */}
+      <Section id="programma" title="Programma del corso (20 ore)">
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card className="p-6 bg-gray-900 border-gray-800 md:col-span-2">
+            <h3 className="font-semibold mb-3">5 moduli · obiettivi e risultati</h3>
+            <ul className="space-y-3 text-sm">
+              {[
+                'Modulo 1 · Capire l’IA: cos’è, limiti, rischi, trend (con checklist uso consapevole).',
+                'Modulo 2 · Il lavoro che cambia: mappa mansioni, competenze future‑proof, mini‑piano.',
+                'Modulo 3 · Prompt engineering: obiettivo, contesto, vincoli, esempi, iterazione.',
+                'Modulo 4 · Casi reali: flussi assistiti da IA per settori (amministrativo, vendite, retail, social...).',
+                'Modulo 5 · Project work + etica/prassi: portfolio AI e piano azione 30 giorni.'
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2">
+                  <CheckCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="p-6 bg-gray-900 border-gray-800">
+            <h3 className="font-semibold mb-2">Erogazione remota (solo mode)</h3>
+            <ul className="text-sm text-gray-300 space-y-2">
+              <li>• Live brevi (30–45’) + compiti asincroni</li>
+              <li>• Materiali leggeri (PDF, screenshot, audio ≤5’)</li>
+              <li>• Consegne semplici da smartphone (foto/screenshot)</li>
+              <li>• Office hour settimanale e feedback su rubriche</li>
+            </ul>
+            <a href="/risorse/programma-corso-IA-20-ore.md" download className="inline-block mt-4 text-brand-300 hover:underline font-medium">Scarica il programma completo (.md) →</a>
+          </Card>
         </div>
       </Section>
 
@@ -491,8 +525,8 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 gap-6">
           {[
             { q: 'Serve esperienza tecnica?', a: 'No, partiamo da zero.' },
-            { q: 'Quanto costa?', a: 'Iscrizione gratuita, opzioni premium disponibili.' },
-            { q: 'Quanto tempo richiede?', a: '2–4 ore a settimana.' },
+            { q: 'Quanto costa?', a: 'Iscrizione gratuita' },
+            { q: 'Quanto tempo richiede?', a: '4 ore al giorno.' },
             { q: 'Che supporto ricevo?', a: 'Mentor e community.' },
             { q: 'Entro quando posso iscrivermi?', a: 'Fino all’avvio delle sessioni di Autunno (posti limitati).' },
           ].map((f) => (
@@ -509,7 +543,7 @@ export default function LandingPage() {
       <footer className="border-t border-gray-800 py-10 text-sm bg-gray-950">
         <div className="container mx-auto max-w-6xl px-4 flex flex-col sm:flex-row justify-between gap-4">
           <div>
-            <div className="font-semibold">AI Prestazioni Lavorative</div>
+            <div className="font-semibold">AI GOL</div>
             <div className="text-gray-500">Email: info@example.com · Tel: +39 000 000 000</div>
           </div>
           <nav className="flex gap-4">

@@ -8,7 +8,7 @@ export default function PrivacyPage() {
         <div className="container mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
           <a className="flex items-center gap-2" href="#" aria-label="Home">
             <img src="/logo.svg" alt="Logo" className="h-6 w-6" />
-            <span className="ml-1 font-semibold">AI Prestazioni Lavorative</span>
+            <span className="ml-1 font-semibold">AI GOL</span>
           </a>
           <nav className="hidden md:flex gap-6 text-sm font-medium">
             <a href="#" className="hover:text-brand-600 transition-colors">Home</a>
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       </main>
       <footer className="border-t border-gray-800 py-8 text-sm">
         <div className="container mx-auto max-w-6xl px-4 flex flex-col sm:flex-row justify-between gap-4 text-gray-500">
-          <div>© {new Date().getFullYear()} AI Prestazioni Lavorative</div>
+          <div>© {new Date().getFullYear()} AI GOL</div>
           <div className="flex gap-4"><a href="#" className="hover:underline">Home</a></div>
         </div>
       </footer>

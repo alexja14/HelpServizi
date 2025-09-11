@@ -58,3 +58,6 @@ npx prisma migrate dev
     * If you did NOT create `.env`, default is admin / changeme.
     * Change password: edit `.env`, then restart `npm run dev` in backend.
     * Ensure no leading/trailing spaces when copying credentials.
+
+## Risorse formative
+- Programma corso IA 20 ore (PDF/Markdown): `frontend/public/risorse/programma-corso-IA-20-ore.md`
