@@ -1,4 +1,4 @@
-import { CheckCircleIcon, ShieldCheckIcon, AcademicCapIcon, HandThumbUpIcon, BriefcaseIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/solid'
+import { CheckCircleIcon, ShieldCheckIcon, AcademicCapIcon, HandThumbUpIcon } from '@heroicons/react/24/solid'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
@@ -11,6 +11,7 @@ import { FAQContent } from './components/FAQContent'
 import TypingHeadline from './components/landing/TypingHeadline'
 import Marquee from './components/landing/Marquee'
 import AnimatedStatCard, { type Stat } from './components/landing/AnimatedStatCard'
+import Footer from './components/Footer'
 
 
 export default function LandingPage() {
@@ -97,7 +98,7 @@ export default function LandingPage() {
   // When success popup opens, mark as registered (defensive if opened from other entry points)
   useEffect(() => {
     if (!successOpen) return
-    try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch {}
+    try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch { }
   }, [successOpen])
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-brand-500/30">
@@ -108,29 +109,45 @@ export default function LandingPage() {
             <img src="/logo.svg" alt="Logo corso" className="h-6 w-6" />
             <span className="ml-1 font-semibold">AI GOL</span>
           </a>
-          <nav className="hidden md:flex gap-6 text-sm font-medium">
-            <a href="#programma" onClick={(e) => handleAnchorClick(e, '#programma')} className="hover:text-brand-600 transition-colors">Programma</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <a href="#cosa" onClick={(e) => handleAnchorClick(e, '#cosa')} className="hover:text-brand-600 transition-colors">Competenze</a>
             <a href="#come" onClick={(e) => handleAnchorClick(e, '#come')} className="hover:text-brand-600 transition-colors">Metodo</a>
             <a href="#chi" onClick={(e) => handleAnchorClick(e, '#chi')} className="hover:text-brand-600 transition-colors">ANT</a>
-            <a href="#partners" onClick={(e) => handleAnchorClick(e, '#partners')} className="hover:text-brand-600 transition-colors">Partner</a>
-            <a href="#faq" onClick={(e) => handleAnchorClick(e, '#faq')} className="hover:text-brand-600 transition-colors">FAQ</a>
-            <a
-              href="#iscriviti"
-              onClick={(e) => {
-                e.preventDefault();
-                if (alreadyRegistered) return;
-                setOpenSignup(true)
-              }}
-              className={`transition-colors cursor-pointer ${alreadyRegistered ? 'text-gray-500 cursor-not-allowed' : 'hover:text-brand-600'}`}
-              aria-disabled={alreadyRegistered}
-            >
-              {alreadyRegistered ? 'Già iscritto' : 'Iscriviti'}
-            </a>
+            {/* Partner logo inline (single, larger) */}
+            <div className="flex items-center pl-4 ml-2 border-l border-gray-800/70">
+              <span className="sr-only">Partner istituzionali</span>
+              <img
+                src={new URL('./assets/partner/partners.png', import.meta.url).href}
+                alt="Partner: UE NextGenerationEU, Repubblica Italiana, ANPAL, Ministero del Lavoro, Regione Lombardia, GOL"
+                className="h-10 md:h-12 w-auto max-w-[460px] object-contain drop-shadow-sm opacity-90 hover:opacity-100 transition-opacity shrink-0"
+                loading={'eager'}
+                decoding="async"
+              />
+            </div>
+
           </nav>
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="shadow-sm" disabled={alreadyRegistered}>
-              <a href="#iscriviti" onClick={(e) => { e.preventDefault(); if (!alreadyRegistered) setOpenSignup(true) }} aria-label={alreadyRegistered ? 'Già iscritto' : 'Iscriviti gratis ora'}>
+            <Button
+              asChild
+              size="sm"
+              className={`shadow-sm transition ${alreadyRegistered ? 'cursor-not-allowed opacity-60 hover:bg-brand-600' : ''}`}
+              disabled={alreadyRegistered}
+            >
+              <a
+                href={alreadyRegistered ? undefined : '#iscriviti'}
+                onClick={(e) => {
+                  if (alreadyRegistered) {
+                    e.preventDefault();
+                    return;
+                  }
+                  e.preventDefault();
+                  setOpenSignup(true)
+                }}
+                aria-label={alreadyRegistered ? 'Già iscritto' : 'Iscriviti gratis ora'}
+                aria-disabled={alreadyRegistered}
+                tabIndex={alreadyRegistered ? -1 : 0}
+                className={alreadyRegistered ? 'pointer-events-none select-none' : ''}
+              >
                 {alreadyRegistered ? 'Già iscritto' : 'Iscriviti'}
               </a>
             </Button>
@@ -138,7 +155,9 @@ export default function LandingPage() {
         </div>
       </header>
 
-  {/* (strip partner sopra la hero rimossa; la posizioniamo sotto la sezione Iscriviti) */}
+      {/* Partner strip removed; now inline in nav */}
+
+      {/* (strip partner sopra la hero rimossa; la posizioniamo sotto la sezione Iscriviti) */}
 
       {/* Hero */}
       <section ref={heroRef} className="relative overflow-hidden">
@@ -287,14 +306,89 @@ export default function LandingPage() {
         <div aria-hidden className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-400/40 to-transparent" />
       </section>
 
+
       {/* Sezione iscrizione spostata sotto la hero */}
-    <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
-  <SignupForm alreadyRegistered={alreadyRegistered} onOpenPrivacy={() => setPrivacyOpen(true)} onSuccess={() => setSuccessOpen(true)} />
+      <Section id="iscriviti" title="Iscriviti ora: posti limitati, prossime sessioni di Autunno">
+        <SignupForm alreadyRegistered={alreadyRegistered} onOpenPrivacy={() => setPrivacyOpen(true)} onSuccess={() => setSuccessOpen(true)} />
       </Section>
 
-      {/* Prova sociale (spostata sotto "Cosa imparerai") */}
-      <Section title="Perché fidarti di noi">
-        {/* Trust badges */}
+      {/* Sezione target specifica GOL (refactor stile cards) */}
+      <Section title="Per chi è rivolto" id="per-chi">
+        <motion.ul
+          className="grid md:grid-cols-3 gap-4"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '-80px' }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
+        >
+          {/* Prima colonna: requisiti */}
+          <motion.li
+            variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } }}
+            whileHover={{ y: -4 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 20 }}
+            className="md:col-span-2"
+          >
+            <Card className="relative overflow-hidden p-5 bg-gray-900 border-gray-800 hover:border-brand-600/50 transition-colors h-full flex flex-col">
+              <div aria-hidden className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
+              <div className="font-semibold mb-2">Requisiti di accesso</div>
+              <ul className="space-y-2 text-sm text-gray-300 flex-1">
+                {[
+                  'Disoccupati residenti/domiciliati in Lombardia',
+                  'Beneficiari NASPI / DIS-COLL / SFL / ADI',
+                  'Categorie fragili o svantaggiate (es. over 55, donne, disabilità)',
+                  'Giovani in ingresso o reinserimento',
+                  'Età indicativa 20–64 anni',
+                  'Non aver concluso recentemente percorsi GOL analoghi',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-gray-500 mt-3">L'idoneità viene confermata dagli enti competenti dopo la tua richiesta preliminare.</p>
+            </Card>
+          </motion.li>
+          {/* Seconda colonna: cosa ottieni */}
+          <motion.li
+            variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } }}
+            whileHover={{ y: -4 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 20 }}
+          >
+            <Card className="relative overflow-hidden p-5 bg-gray-900 border-gray-800 hover:border-brand-600/50 transition-colors h-full flex flex-col">
+              <div aria-hidden className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
+              <div className="font-semibold mb-2">Cosa ottieni</div>
+              <ul className="space-y-2 text-sm text-gray-300 flex-1">
+                {[
+                  '20h pratica (CV, portfolio, colloqui, micro‑automazioni)',
+                  'Project work reale + mentor',
+                  'Materiali on‑demand sempre accessibili',
+                  'Metodo rapido: output verificabili',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-500 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button size="sm" className="mt-4" onClick={() => { if (!alreadyRegistered) setOpenSignup(true) }} disabled={alreadyRegistered}>
+                {alreadyRegistered ? 'Già iscritto' : 'Richiedi accesso →'}
+              </Button>
+              <div className="mt-3 text-[11px] text-gray-500">Hai dubbi sui requisiti? Invia comunque la richiesta, ti aiutiamo a verificarli.</div>
+            </Card>
+          </motion.li>
+        </motion.ul>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-800 bg-gray-900/60 px-3 py-1 text-xs text-gray-300">
+            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+            Non servono competenze tecniche avanzate
+          </span>
+        </div>
+      </Section>
+
+      {/* Prova sociale / Trust */}
+      <Section title="Perché fidarti di noi" id="perche-fidarci">
+        {/* Trust badges rifiniti */}
         <motion.ul
           className="grid sm:grid-cols-3 gap-3 mb-6"
           initial="hidden"
@@ -303,9 +397,9 @@ export default function LandingPage() {
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
         >
           {[
-            { icon: ShieldCheckIcon, title: 'Trasparenza', desc: 'Info chiare, niente sorprese' },
-            { icon: AcademicCapIcon, title: 'Docenti senior', desc: 'Pratica su casi reali' },
-            { icon: HandThumbUpIcon, title: 'Valutazioni top', desc: 'Community soddisfatta' },
+            { icon: ShieldCheckIcon, title: 'Trasparenza reale', desc: 'Struttura, requisiti e modulistica spiegati prima di iscriverti' },
+            { icon: AcademicCapIcon, title: 'Docenti senior', desc: 'Professionisti che applicano quotidianamente AI & automazione' },
+            { icon: HandThumbUpIcon, title: 'Valutazioni alte', desc: 'Feedback verificati e continui miglioramenti' },
           ].map(({ icon: Icon, title, desc }) => (
             <motion.li key={title} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
               <div className="group rounded-md border border-gray-800 bg-gray-900/70 px-4 py-3 flex items-center gap-3 hover:border-brand-600/40 transition-colors">
@@ -320,6 +414,11 @@ export default function LandingPage() {
             </motion.li>
           ))}
         </motion.ul>
+
+        <div className="grid md:grid-cols-2 gap-8 mt-2 mb-8 text-sm leading-relaxed text-gray-300">
+          <p><strong className="text-brand-300">Zero fuffa:</strong> ci concentriamo su competenze spendibili: prompt mirati, flussi semi‑automatici, portfolio, riposizionamento professionale. Ogni modulo termina con micro‑output verificabile (prompt validato, automazione, deliverable CV o pitch).</p>
+          <p><strong className="text-brand-300">Metodo iterativo:</strong> brevi sessioni live + on‑demand subito disponibili, supporto asincrono e revisione deliverable. L'obiettivo è sbloccarti, non sovraccaricarti: micro‑progressi settimanali misurabili.</p>
+        </div>
 
         {/* Animated stats */}
         <motion.div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6" initial="hidden" whileInView="show" viewport={{ once: true }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
@@ -338,27 +437,7 @@ export default function LandingPage() {
           })()}
         </motion.div>
 
-        {/* Partner istituzionali — strip adiacente alle review */}
-    <div id="partners" className="mt-10">
-          <div className="relative overflow-hidden rounded-md border border-gray-800 bg-gray-900/60 p-3 sm:p-4">
-            <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-gray-900/60 to-transparent" />
-            <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-gray-900/60 to-transparent" />
-      {/* Slow down to ~8 px/s to achieve ~3–4 min per full loop depending on content width */}
-      <Marquee speed={8}>
-              {[0,1,2,3].map((i) => (
-                <img
-                  key={i}
-                  src={new URL('./assets/partner/partners.png', import.meta.url).href}
-                  alt={i === 0 ? "Loghi: Finanziato dall'Unione europea – NextGenerationEU, Repubblica Italiana, ANPAL – Agenzia Nazionale Politiche Attive del Lavoro, Ministero del Lavoro e delle Politiche Sociali, Regione Lombardia, GOL – Garanzia Occupabilità Lavoratori" : ''}
-                  aria-hidden={i !== 0}
-                  className="h-10 sm:h-12 md:h-14 lg:h-16 w-auto object-contain shrink-0"
-          loading={'eager'}
-          decoding="async"
-                />
-              ))}
-            </Marquee>
-          </div>
-        </div>
+        {/* Partner istituzionali — moved to hero; placeholder removed */}
 
         {/* Testimonials marquee */}
         <div className="mt-10">
@@ -423,26 +502,36 @@ export default function LandingPage() {
             <p className="text-sm text-gray-300 mt-1">
               Disoccupati residenti o domiciliati in Lombardia, inclusi beneficiari di NASPI, DIS‑COLL, Supporto per la Formazione e il Lavoro e Assegno d’Inclusione.
             </p>
-            <a
-              href="#iscriviti"
-              onClick={(e) => {
-                e.preventDefault()
-                const el = document.querySelector('#iscriviti') as HTMLElement | null
-                if (!el) return
-                const y = el.getBoundingClientRect().top + window.scrollY - 64
-                window.scrollTo({ top: y, behavior: 'smooth' })
-              }}
-              className="inline-block mt-3 text-brand-300 hover:underline text-sm font-medium"
-            >
-              Richiedi l’accesso →
-            </a>
+            {alreadyRegistered ? (
+              <span
+                className="inline-flex items-center mt-3 text-sm font-medium text-gray-500/70 cursor-not-allowed select-none"
+                aria-disabled="true"
+              >
+                Già iscritto
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOpenSignup(true)}
+                className="group inline-flex items-center mt-3 text-brand-300 hover:underline text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60 rounded"
+                aria-label="Richiedi l'accesso (apre modulo iscrizione)"
+              >
+                <span>Richiedi l’accesso</span>
+                <span
+                  aria-hidden
+                  className="ml-1 transition-transform group-hover:translate-x-0.5"
+                >
+                  →
+                </span>
+              </button>
+            )}
           </Card>
         </motion.div>
       </Section>
 
-  {/* (strip partner spostata accanto alla sezione recensioni) */}
+      {/* (strip partner spostata accanto alla sezione recensioni) */}
 
-      
+
 
       {/* Cosa imparerai */}
       <Section id="cosa" title="Cosa imparerai">
@@ -488,101 +577,9 @@ export default function LandingPage() {
         </div>
       </Section>
 
-      {/* Programma dettagliato */}
-      <Section id="programma" title="Programma del corso (20 ore)">
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card className="p-6 bg-gray-900 border-gray-800 md:col-span-2">
-            <h3 className="font-semibold mb-3">5 moduli · obiettivi e risultati</h3>
-            <ul className="space-y-3 text-sm">
-              {[
-                'Modulo 1 · Capire l’IA: cos’è, limiti, rischi, trend (con checklist uso consapevole).',
-                'Modulo 2 · Il lavoro che cambia: mappa mansioni, competenze future‑proof, mini‑piano.',
-                'Modulo 3 · Prompt engineering: obiettivo, contesto, vincoli, esempi, iterazione.',
-                'Modulo 4 · Casi reali: flussi assistiti da IA per settori (amministrativo, vendite, retail, social...).',
-                'Modulo 5 · Project work + etica/prassi: portfolio AI e piano azione 30 giorni.'
-              ].map((t) => (
-                <li key={t} className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-          <ExpectedResults
-            title="Risultati attesi"
-            items={[
-              '2 progetti utilizzando tool AI',
-              'Skill pratici',
-              'Utilizzo prompt engineering',
-            ]}
-          />
-        </div>
-      </Section>
+      {/* Programma dettagliato rimosso su richiesta */}
 
-      {/* A chi è rivolto */}
-      <Section title="A chi è rivolto">
-        <motion.ul
-          className="grid md:grid-cols-3 gap-4"
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
-        >
-          {[
-            {
-              icon: BriefcaseIcon,
-              title: 'In cerca di lavoro',
-              bullets: ['CV e colloqui con AI', 'Portfolio in 2 settimane'],
-            },
-            {
-              icon: AcademicCapIcon,
-              title: 'Neodiplomati/neolaureati',
-              bullets: ['Competenze subito pratiche', 'Orientamento e mentoring'],
-            },
-            {
-              icon: ArrowTrendingUpIcon,
-              title: 'In transizione o rientro',
-              bullets: ['Reskilling rapido', 'Automazioni leggere per il lavoro'],
-            },
-          ].map(({ icon: Icon, title, bullets }) => (
-            <motion.li
-              key={title}
-              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } }}
-              whileHover={{ y: -4 }}
-              transition={{ type: 'spring', stiffness: 250, damping: 20 }}
-            >
-              <Card className="relative overflow-hidden p-5 bg-gray-900 border-gray-800 hover:border-brand-600/50 transition-colors">
-                <div aria-hidden className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl" />
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-brand-600/15 text-brand-300 border border-brand-700/40">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="font-semibold">{title}</div>
-                    <ul className="mt-1 space-y-1 text-sm text-gray-300">
-                      {bullets.map((b) => (
-                        <li key={b} className="flex items-start gap-2">
-                          <CheckCircleIcon className="h-4 w-4 mt-0.5 text-green-500" />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </Card>
-            </motion.li>
-          ))}
-        </motion.ul>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-gray-800 bg-gray-900/60 px-3 py-1 text-xs text-gray-300">
-            <CheckCircleIcon className="h-4 w-4 text-green-500" />
-            Non servono competenze tecniche avanzate
-          </span>
-          <Button size="sm" className="h-8" onClick={() => { if (!alreadyRegistered) setOpenSignup(true) }} disabled={alreadyRegistered}>
-            {alreadyRegistered ? 'Già iscritto' : 'Mi riconosco: iscrivimi →'}
-          </Button>
-        </div>
-      </Section>
+      {/* Sezione 'A chi è rivolto' originale rimossa dopo refactor */}
 
       {/* Chi siamo */}
       <Section id="chi" title="Chi siamo">
@@ -630,7 +627,7 @@ export default function LandingPage() {
         </div>
       </Section>
 
-  {/* (sezione Partner con titolo rimossa; ora la strip è sopra la hero) */}
+      {/* (sezione Partner con titolo rimossa; ora la strip è sopra la hero) */}
 
       {/* (sezione iscrizione originale rimossa) */}
 
@@ -641,20 +638,7 @@ export default function LandingPage() {
 
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-10 text-sm bg-gray-950">
-        <div className="container mx-auto max-w-6xl px-4 flex flex-col sm:flex-row justify-between gap-4">
-          <div>
-            <div className="font-semibold">AI GOL</div>
-            <div className="text-gray-500">Email: info@example.com · Tel: +39 000 000 000</div>
-          </div>
-          <nav className="flex gap-4">
-            <a href="#" className="hover:underline">Privacy</a>
-            <a href="#" className="hover:underline">Termini</a>
-            <a href="#" className="hover:underline">Contatti</a>
-            <a href="#" className="hover:underline">Social</a>
-          </nav>
-        </div>
-      </footer>
+      <Footer />
       {/* Modal Iscrizione */}
       {openSignup && (
         <div role="dialog" aria-modal="true" aria-labelledby="signup-modal-title" className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4">
@@ -674,7 +658,7 @@ export default function LandingPage() {
                   // Close modal first, then show success popup to avoid overlap
                   setOpenSignup(false)
                   setTimeout(() => setSuccessOpen(true), 350)
-                  try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch {}
+                  try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch { }
                 }}
                 onOpenPrivacy={() => setPrivacyOpen(true)}
               />
@@ -698,9 +682,9 @@ export default function LandingPage() {
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
             className="relative w-full max-w-md z-10"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+            onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}
             role="alertdialog"
             aria-labelledby="success-title"
             aria-describedby="success-desc"
@@ -729,7 +713,7 @@ export default function LandingPage() {
                     <p id="success-desc" className="text-sm text-gray-300 mt-1">Abbiamo registrato la tua richiesta. Ti contatteremo al più presto con i prossimi slot e tutte le informazioni utili.</p>
                   </div>
                 </div>
-        <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-end">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -740,7 +724,7 @@ export default function LandingPage() {
                       setPrivacyOpen(false);
                       setTimeout(() => setSuccessOpen(false), 0);
                     }}
-          className="relative z-20 pointer-events-auto px-3 py-1.5 text-sm rounded bg-gray-800 hover:bg-gray-700 border border-gray-700"
+                    className="relative z-20 pointer-events-auto px-3 py-1.5 text-sm rounded bg-gray-800 hover:bg-gray-700 border border-gray-700"
                   >
                     Chiudi
                   </button>
