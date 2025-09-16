@@ -1,11 +1,14 @@
 {
   "name": "helpservizi",
   "version": "1.0.0",
-  "description": "1. Backend (API)\r    - From `backend/`:\r      - `npm install`\r      - `npx prisma migrate dev` (already run once)\r      - `npm run dev` to start http://localhost:4000",
+  "description": "Monorepo: backend (Express + TypeScript + custom sqlite via sql.js) + frontend (Vite + React). Prisma previously used; now removed for lean runtime.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev --workspace backend\" \"npm:dev --workspace frontend\""
+    "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev --workspace backend\" \"npm:dev --workspace frontend\"",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "start": "npm run start --workspace backend",
+    "preview": "npm run preview --workspace frontend"
   },
   "keywords": [],
   "author": "",
@@ -17,10 +20,7 @@
     "backend"
   ],
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "prisma": "^6.15.0"
+    "concurrently": "^9.2.1"
   },
-  "dependencies": {
-    "@prisma/client": "^6.15.0"
-  }
+  "dependencies": {}
 }

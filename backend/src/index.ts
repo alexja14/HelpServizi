@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 // Switched from Prisma to direct SQLite (see db.ts)
 import { listTasks, createTask, updateTask, deleteTask, createLead, listLeads } from './db';
 import basicAuth from 'basic-auth';
@@ -123,9 +124,33 @@ app.get('/api/admin/leads/export', adminAuth, async (_req, res) => {
   }
 });
 
+// --- Static frontend (optional production build) ---
+// If the frontend has been built (frontend/dist), serve it. This allows a single-process deployment.
+try {
+  const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
+  // Basic existence check (sync to avoid async race during startup)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  if (fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    // Fallback to index.html for SPA routes (after API routes)
+    app.get(/^(?!\/api\/).*/, (req, res, next) => {
+      const indexPath = path.join(frontendDist, 'index.html');
+      if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+      return next();
+    });
+    console.log('[server] Serving frontend from', frontendDist);
+  } else {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[server] Frontend dist not found at', frontendDist);
+    }
+  }
+} catch (e) {
+  console.warn('[server] Static frontend setup error', e);
+}
+
 app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
-  // Dev hint (do not log in production)
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[admin] user: ${process.env.ADMIN_USER || 'admin'}`);
   }
