@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { prisma } from './prisma';
+// Switched from Prisma to direct SQLite (see db.ts)
+import { listTasks, createTask, updateTask, deleteTask, createLead, listLeads } from './db';
 import basicAuth from 'basic-auth';
 let fallbackWarned = false;
 
@@ -38,30 +39,47 @@ app.get('/health', (_req, res) => {
 
 // Tasks CRUD
 app.get('/api/tasks', async (_req, res) => {
-  const tasks = await prisma.task.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(tasks);
+  try {
+    const tasks = await listTasks();
+    res.json(tasks);
+  } catch (e) {
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 app.post('/api/tasks', async (req, res) => {
   const { title } = req.body as { title?: string };
   if (!title) return res.status(400).json({ error: 'title is required' });
-  const task = await prisma.task.create({ data: { title } });
-  res.status(201).json(task);
+  try {
+    const task = await createTask(title);
+    res.status(201).json(task);
+  } catch {
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 app.patch('/api/tasks/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid id' });
   const { title, completed } = req.body as { title?: string; completed?: boolean };
-  const task = await prisma.task.update({ where: { id }, data: { title, completed } });
-  res.json(task);
+  try {
+    const task = await updateTask(id, { title, completed });
+    res.json(task);
+  } catch (e: any) {
+    if (e.message === 'not_found') return res.status(404).json({ error: 'not found' });
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 app.delete('/api/tasks/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-  await prisma.task.delete({ where: { id } });
-  res.status(204).send();
+  try {
+    await deleteTask(id);
+    res.status(204).send();
+  } catch {
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 // Public endpoint to collect leads
@@ -71,10 +89,10 @@ app.post('/api/leads', async (req, res) => {
   };
   if (!name || !lastName || !email || !consent) return res.status(400).json({ error: 'missing required fields' });
   try {
-    const lead = await prisma.lead.create({ data: { name, lastName, email, phone, cafFlag: !!cafFlag, unemployed: !!unemployed, consent: !!consent } });
+    const lead = await createLead({ name, lastName, email, phone, cafFlag: !!cafFlag, unemployed: !!unemployed, consent: !!consent });
     res.status(201).json(lead);
   } catch (e: any) {
-    if (e.code === 'P2002') return res.status(409).json({ error: 'email already exists' });
+    if (e.code === 'unique_email') return res.status(409).json({ error: 'email already exists' });
     console.error(e);
     res.status(500).json({ error: 'internal error' });
   }
@@ -82,19 +100,27 @@ app.post('/api/leads', async (req, res) => {
 
 // Admin: list leads
 app.get('/api/admin/leads', adminAuth, async (_req, res) => {
-  const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(leads);
+  try {
+    const leads = await listLeads();
+    res.json(leads);
+  } catch {
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 // Admin: export leads CSV
 app.get('/api/admin/leads/export', adminAuth, async (_req, res) => {
-  const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'desc' } });
-  const header = 'id,name,lastName,email,phone,cafFlag,unemployed,consent,createdAt';
-  const rows = leads.map(l => [l.id, JSON.stringify(l.name), JSON.stringify(l.lastName), l.email, l.phone || '', l.cafFlag, l.unemployed, l.consent, l.createdAt.toISOString()].join(','));
-  const csv = [header, ...rows].join('\n');
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
-  res.send(csv);
+  try {
+    const leads = await listLeads();
+    const header = 'id,name,lastName,email,phone,cafFlag,unemployed,consent,createdAt';
+    const rows = leads.map((l: any) => [l.id, JSON.stringify(l.name), JSON.stringify(l.lastName), l.email, l.phone || '', l.cafFlag, l.unemployed, l.consent, (l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt)].join(','));
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+    res.send(csv);
+  } catch {
+    res.status(500).json({ error: 'internal error' });
+  }
 });
 
 app.listen(port, () => {
