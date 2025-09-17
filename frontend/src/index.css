@@ -15,7 +15,43 @@
 .text-gradient-brand {
 	background: linear-gradient(90deg, theme('colors.brand.500'), theme('colors.brand.300'));
 	-webkit-background-clip: text;
+	background-clip: text;
 	color: transparent;
+	/* Safari/macOS requires explicit text fill to be transparent when clipping background to text */
+	-webkit-text-fill-color: transparent;
+
+	/* Fallback immediate (user agent that strips background-clip) */
+	@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+		color: theme('colors.brand.400');
+		background: none;
+	}
+}
+
+/* Firefox in alcuni profili high contrast / forced-colors può ignorare il gradient rendendo il testo quasi invisibile.
+   Forziamo un colore leggibile quando forced-colors è attivo (Windows High Contrast, alcune configurazioni accessibility). */
+@media (forced-colors: active) {
+	.text-gradient-brand {
+		forced-color-adjust: none;
+		/* Manteniamo controllo */
+		color: ButtonText;
+		/* Colore ad alto contrasto di sistema */
+		background: none !important;
+	}
+}
+
+/* Preferenze utente: se è richiesta riduzione effetti (reduce-motion o contrast more), offriamo anche un contorno leggero per separare su bg complesso */
+@media (prefers-contrast: more) {
+	.text-gradient-brand {
+		text-shadow: 0 0 2px rgba(0, 0, 0, 0.6), 0 0 6px rgba(0, 0, 0, 0.4);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	.word-particles span,
+	.cta-particles span {
+		animation: none !important;
+	}
 }
 
 /* CTA Glow + Particles */

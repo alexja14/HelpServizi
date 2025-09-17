@@ -4,7 +4,22 @@ import initSqlJs, { Database as SQLWasm } from 'sql.js';
 
 // Lazy init state
 let dbPromise: Promise<SQLWasm> | null = null;
-const DB_PATH = process.env.SQLITE_PATH || path.join(__dirname, '..', 'data.sqlite');
+
+// Resolve database path (robust for production deployments):
+// 1. If SQLITE_PATH is absolute, use it.
+// 2. If SQLITE_PATH is relative, resolve it relative to the backend root (one level up from compiled dist) so
+//    systemd / process managers that start the process with an arbitrary working directory still work.
+// 3. If not provided, default to <backend root>/data.sqlite.
+// 4. We keep it mutable so we can fallback later if an ENOENT occurs writing the temp file (very rare edge cases).
+const backendRoot = path.join(__dirname, '..');
+const rawDbPath = process.env.SQLITE_PATH || path.join(backendRoot, 'data.sqlite');
+let DB_PATH = path.isAbsolute(rawDbPath) ? rawDbPath : path.join(backendRoot, rawDbPath);
+
+async function ensureDBDir() {
+    const dir = path.dirname(DB_PATH);
+    if (dir === '.' || dir === '') return; // current dir – nothing to create
+    try { await fs.mkdir(dir, { recursive: true }); } catch { /* ignore */ }
+}
 
 // Persistence + backup tuning (env overrides supported)
 const PERSIST_DEBOUNCE_MS = Number(process.env.DB_PERSIST_DEBOUNCE_MS || 300); // debounce window for grouping writes
@@ -21,9 +36,37 @@ let backupIntervalStarted = false;
 async function writeDBFile(db: SQLWasm) {
     const data = db.export();
     const buffer = Buffer.from(data);
-    const tmp = DB_PATH + '.tmp';
-    await fs.writeFile(tmp, buffer);
-    await fs.rename(tmp, DB_PATH);
+    await ensureDBDir();
+    // Always place tmp file in same directory for atomic rename safety across filesystems
+    const dir = path.dirname(DB_PATH);
+    const base = path.basename(DB_PATH);
+    const tmp = path.join(dir === '.' ? '' : dir, `.${base}.tmp`); // dotted temp for easier ignore patterns
+    try {
+        await fs.writeFile(tmp, buffer);
+        await fs.rename(tmp, DB_PATH);
+    } catch (err: any) {
+        if (err?.code === 'ENOENT') {
+            // Fallback: attempt to relocate DB into backendRoot (covers cases where relative path pointed to a non-existent dir)
+            const fallback = path.join(backendRoot, base);
+            if (fallback !== DB_PATH) {
+                try {
+                    await fs.mkdir(path.dirname(fallback), { recursive: true });
+                    const fallbackTmp = fallback + '.tmp';
+                    await fs.writeFile(fallbackTmp, buffer);
+                    await fs.rename(fallbackTmp, fallback);
+                    console.warn(`[db] Primary DB path failed (${DB_PATH}). Using fallback ${fallback}`);
+                    DB_PATH = fallback; // update for future writes
+                } catch (e2) {
+                    console.error('[db] Fallback DB write failed', e2);
+                    throw e2;
+                }
+            } else {
+                throw err;
+            }
+        } else {
+            throw err;
+        }
+    }
 }
 
 async function flushIfPending(db: SQLWasm) {
@@ -120,6 +163,7 @@ async function loadDB(): Promise<SQLWasm> {
             const SQL = await initSqlJs({});
             let db: SQLWasm;
             try {
+                await ensureDBDir();
                 const file = await fs.readFile(DB_PATH);
                 db = new SQL.Database(file);
             } catch {
@@ -127,6 +171,7 @@ async function loadDB(): Promise<SQLWasm> {
             }
             db.run('PRAGMA foreign_keys = ON;');
             db.run(SCHEMA); // idempotent
+            console.log('[db] using database file', DB_PATH);
             return db;
         })();
     }

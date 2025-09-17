@@ -2,6 +2,7 @@ import { CheckCircleIcon, ShieldCheckIcon, AcademicCapIcon, HandThumbUpIcon } fr
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
+import { ModalMarkdown } from './components/ModalMarkdown'
 import { useRef, useState, useEffect } from 'react'
 import { PrivacyContent } from './components/PrivacyContent'
 import { ExpectedResults } from './components/ExpectedResults'
@@ -24,6 +25,11 @@ export default function LandingPage() {
   const [faqOpen, setFaqOpen] = useState(false)
   const [successOpen, setSuccessOpen] = useState(false)
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  // Markdown resources modal state
+  const [mdModalOpen, setMdModalOpen] = useState(false)
+  const [mdContent, setMdContent] = useState<string | null>(null)
+  const [mdLoading, setMdLoading] = useState(false)
+  const [mdMeta, setMdMeta] = useState<{ title: string; path: string } | null>(null)
 
   // Smooth scroll utility (accounts for sticky header height)
   const smoothScrollTo = (selector: string) => {
@@ -100,6 +106,24 @@ export default function LandingPage() {
     if (!successOpen) return
     try { localStorage.setItem('lead_registered', '1'); setAlreadyRegistered(true) } catch { }
   }, [successOpen])
+
+  // Listener per apertura risorsa markdown (evento dispatchato da TipsResources)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ title: string; path: string }>).detail
+      if (!detail) return
+      setMdMeta(detail)
+      setMdContent(null)
+      setMdLoading(true)
+      setMdModalOpen(true)
+      fetch(detail.path)
+        .then(r => r.ok ? r.text() : Promise.reject(new Error('Errore caricamento'))) // gestione errore semplice
+        .then(txt => { setMdContent(txt); setMdLoading(false) })
+        .catch(() => { setMdContent('Errore nel caricamento del contenuto.'); setMdLoading(false) })
+    }
+    window.addEventListener('open-md-resource', handler as EventListener)
+    return () => window.removeEventListener('open-md-resource', handler as EventListener)
+  }, [])
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-brand-500/30">
       {/* Top bar */}
@@ -608,23 +632,7 @@ export default function LandingPage() {
 
       {/* Tips & risorse */}
       <Section title="Tips e risorse gratuite">
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card className="p-5">
-            <h3 className="font-semibold">Template CV ottimizzato AI</h3>
-            <p className="text-sm text-gray-300">Struttura ATS + prompt per migliorare i bullet.</p>
-            <a href="/risorse/template-cv-ai.md" download className="mt-3 text-indigo-500 hover:underline">Scarica .md</a>
-          </Card>
-          <Card className="p-5">
-            <h3 className="font-semibold">Checklist colloquio con AI</h3>
-            <p className="text-sm text-gray-300">Preparazione strutturata + prompt coaching.</p>
-            <a href="/risorse/checklist-colloquio-ai.md" download className="mt-3 text-indigo-500 hover:underline">Scarica .md</a>
-          </Card>
-          <Card className="p-5">
-            <h3 className="font-semibold">10 prompt per cercare lavoro</h3>
-            <p className="text-sm text-gray-300">Pacchetto rapido per CV, JD e colloqui.</p>
-            <a href="/risorse/prompt-lavoro-10.md" download className="mt-3 text-indigo-500 hover:underline">Scarica .md</a>
-          </Card>
-        </div>
+        <TipsResources />
       </Section>
 
       {/* (sezione Partner con titolo rimossa; ora la strip è sopra la hero) */}
@@ -636,6 +644,15 @@ export default function LandingPage() {
         <FAQContent columns={2} />
       </Section>
 
+
+      {/* Modal Markdown Risorse (singola istanza) */}
+      <ModalMarkdown
+        open={mdModalOpen}
+        title={mdMeta?.title || 'Risorsa'}
+        content={mdContent}
+        loading={mdLoading}
+        onClose={() => { setMdModalOpen(false); setMdContent(null); setMdMeta(null) }}
+      />
 
       {/* Footer */}
       <Footer />
@@ -667,6 +684,7 @@ export default function LandingPage() {
           </motion.div>
         </div>
       )}
+
       {/* Success Popup */}
       {successOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
@@ -803,4 +821,42 @@ export default function LandingPage() {
       </motion.aside>
     </div>
   );
+}
+
+// Component griglia risorse markdown
+function TipsResources() {
+  const resources: { title: string; path: string; desc: string }[] = [
+    { title: 'Template CV ottimizzato AI', path: '/risorse/template-cv-ai.md', desc: 'Struttura ATS + prompt per migliorare i bullet.' },
+    { title: 'Checklist colloquio con AI', path: '/risorse/checklist-colloquio-ai.md', desc: 'Preparazione strutturata + prompt coaching.' },
+    { title: '10 prompt per cercare lavoro', path: '/risorse/prompt-lavoro-10.md', desc: 'Pacchetto rapido per CV, JD e colloqui.' }
+  ]
+
+  const openResource = (res: { title: string; path: string }) => {
+    window.dispatchEvent(new CustomEvent('open-md-resource', { detail: res }))
+  }
+
+  return (
+    <div className="grid md:grid-cols-3 gap-6">
+      {resources.map(r => (
+        <Card key={r.path} className="p-5 flex flex-col">
+          <div className="flex-1">
+            <h3 className="font-semibold">{r.title}</h3>
+            <p className="text-sm text-gray-300 mt-1">{r.desc}</p>
+          </div>
+          <div className="mt-4 flex gap-3 items-center">
+            <button onClick={() => openResource(r)} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
+              Apri
+            </button>
+            <a
+              href={r.path}
+              download={r.path.split('/').pop()?.replace(/\.md$/i, '.txt') || 'risorsa.txt'}
+              className="text-sm text-gray-500 hover:text-gray-300 hover:underline underline-offset-2"
+            >
+              Download .txt
+            </a>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
 }

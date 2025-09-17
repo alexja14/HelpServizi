@@ -3,3 +3,9 @@ node_modules
 .env
 
 /generated/prisma
+
+# SQLite runtime artifacts (do not commit local data / temp / backups)
+data.sqlite
+*.sqlite
+.*.sqlite.tmp
+db_backups/
