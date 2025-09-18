@@ -200,14 +200,35 @@ export default function LandingPage() {
             >
               <span className="block">
                 <span className="relative inline-block word-glow">
-                  <span className="word-text text-gradient-brand">Potenzia GRATIS</span>
+                  <span
+                    className="word-text text-gradient-brand"
+                    data-fallback-gradient
+                    style={{
+                      WebkitBackgroundClip: 'text',
+                      backgroundImage: 'linear-gradient(90deg,var(--tw-gradient-stops,rgba(56,189,248,1),rgba(125,211,252,1)))',
+                      backgroundColor: 'transparent',
+                      WebkitTextFillColor: 'transparent'
+                    }}
+                  >Potenzia GRATIS</span>
                   <span aria-hidden className="word-particles">
                     {Array.from({ length: 10 }).map((_, i) => (
                       <span key={i} style={{ ['--tx' as any]: `${(Math.random() * 140 - 70).toFixed(0)}px`, ['--ty' as any]: `${(Math.random() * 60 - 30).toFixed(0)}px`, ['--dur' as any]: `${(5 + Math.random() * 4).toFixed(2)}s`, animationDelay: `${(Math.random() * 4).toFixed(2)}s` }} />
                     ))}
                   </span>
                 </span>{' '}
-                <span className="text-gradient-brand">la tua carriera </span><span className="word-text text-gradient-brand">con</span> <span className="word-text text-gradient-brand">AI GOL</span>
+                <span
+                  className="text-gradient-brand"
+                  data-fallback-gradient
+                  style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: 'linear-gradient(90deg,var(--tw-gradient-stops,rgba(56,189,248,1),rgba(125,211,252,1)))' }}
+                >la tua carriera  </span> <span
+                  className="word-text text-gradient-brand"
+                  data-fallback-gradient
+                  style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: 'linear-gradient(90deg,var(--tw-gradient-stops,rgba(56,189,248,1),rgba(125,211,252,1)))' }}
+                > con</span> <span
+                  className="word-text text-gradient-brand"
+                  data-fallback-gradient
+                  style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: 'linear-gradient(90deg,var(--tw-gradient-stops,rgba(56,189,248,1),rgba(125,211,252,1)))' }}
+                >AI GOL</span>
 
                 <span className="relative inline-block word-glow ml-1">
 
