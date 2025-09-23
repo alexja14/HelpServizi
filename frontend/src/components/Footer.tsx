@@ -32,7 +32,8 @@ export const Footer: React.FC = () => {
                     <div className="space-y-2">
                         <h3 className="font-medium text-gray-300 text-xs md:text-[12px] uppercase tracking-wide">Contatti</h3>
                         <p className="leading-snug">
-                            <a href="mailto:info@antsrl.com" className="hover:text-gray-200">info@antsrl.com</a><br />
+                            <span className="block"><a href="mailto:info@antsrl.com" className="hover:text-gray-200">info@antsrl.com</a> (info)</span>
+                            <span className="block"><a href="mailto:privacy@antsrl.pec.it" className="hover:text-gray-200">privacy@antsrl.pec.it</a> (privacy)</span>
                             Tel: <a href="tel:+390229013496" className="hover:text-gray-200">+39 02 29013496</a>
                         </p>
                     </div>
